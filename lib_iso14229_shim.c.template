@@ -1,0 +1,92 @@
+/*!
+@file   iso14229_1_shim.c
+@brief  Source file of the ISO14229-1 library
+@t.odo	-
+---------------------------------------------------------------------------
+MIT License
+Copyright (c) 2020 Io. D (Devcoons.com)
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+/******************************************************************************
+* Preprocessor Definitions & Macros
+******************************************************************************/
+
+/******************************************************************************
+* Includes
+******************************************************************************/
+
+#include "lib_iso14229.h"
+#include "drv_canbus.h"
+#include "user_code.h"
+
+/******************************************************************************
+* Declaration | Static Functions
+******************************************************************************/
+
+static canbus_t* iso14229_cbh = NULL;
+
+/******************************************************************************
+* Enumerations, structures & Variables
+******************************************************************************/
+
+/******************************************************************************
+* Declaration | Static Functions
+******************************************************************************/
+
+/******************************************************************************
+* Definition  | Static Functions
+******************************************************************************/
+
+static void canbus_callback(canbus_frame_t* frame)
+{
+	iso15765_enqueue(&uds_server.nl, frame);
+}
+
+/******************************************************************************
+* Definition  | Public Functions
+******************************************************************************/
+
+uint32_t iso14229_getms()
+{
+	return HAL_GetTick();
+}
+
+void iso14992_postinit()
+{
+	canbus_callback_add(iso14229_cbh, 0x18DA0000 | (ISO14229_1_DEVICE_ADDRESS << 8), 0xFFFFFF00, FDCAN_EXTENDED_ID, canbus_callback);
+	canbus_callback_add(iso14229_cbh, 0x18DB0000, 0xFFFF0000, FDCAN_EXTENDED_ID, canbus_callback);
+}
+
+uint8_t send_frame(cbus_id_type id_type, uint32_t id, cbus_fr_format fr_fmt, uint8_t dlc, uint8_t* dt)
+{
+	static canbus_frame_t out_frame = { .dt={0}};
+
+	out_frame.id = id;
+	out_frame.id_type = id_type;
+	out_frame.dlc = dlc;
+	out_frame.fr_format = fr_fmt;
+	memmove(out_frame.dt,dt,dlc);
+	if(	canbus_send(iso14229_cbh, &out_frame) != I_OK)
+	{
+		HAL_Delay(1);
+		canbus_send(iso14229_cbh, &out_frame);
+	}
+	return 0;
+}
+/******************************************************************************
+* EOF - NO CODE AFTER THIS LINE
+******************************************************************************/

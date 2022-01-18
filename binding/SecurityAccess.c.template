@@ -1,0 +1,68 @@
+/*!
+	@file   SecurityAccess.c
+	@brief  <brief description here>
+	@t.odo	-
+*/
+/******************************************************************************
+* Preprocessor Definitions & Macros
+******************************************************************************/
+
+/******************************************************************************
+* Includes
+******************************************************************************/
+
+#include "lib_iso14229.h"
+#include <rng.h>
+
+/******************************************************************************
+* Enumerations, structures & Variables
+******************************************************************************/
+
+static uint32_t key_validation_lvl_1(uint32_t arg)
+{
+	return arg+1;
+
+}
+static uint32_t key_validation_lvl_2(uint32_t arg)
+{
+	return arg+2;
+
+}
+static uint32_t key_validation_lvl_3(uint32_t arg)
+{
+	return arg+3;
+
+}
+static uint32_t key_validation_lvl_4(uint32_t arg)
+{
+	return arg+4;
+}
+static uint32_t key_validation_lvl_5(uint32_t arg)
+{
+	return arg+5;
+}
+
+uds_security_access_t uds_security_accesses[] =
+{
+	{.access_lvl = 0x01, .default_sts = SA_INACTIVE, .sts = SA_INACTIVE, .key_validation = key_validation_lvl_1},
+	{.access_lvl = 0x03, .default_sts = SA_INACTIVE, .sts = SA_INACTIVE, .key_validation = key_validation_lvl_2},
+	{.access_lvl = 0x05, .default_sts = SA_INACTIVE, .sts = SA_INACTIVE, .key_validation = key_validation_lvl_3},
+	{.access_lvl = 0x07, .default_sts = SA_INACTIVE, .sts = SA_INACTIVE, .key_validation = key_validation_lvl_4},
+	{.access_lvl = 0x09, .default_sts = SA_INACTIVE, .sts = SA_INACTIVE, .key_validation = key_validation_lvl_5}
+};
+
+/******************************************************************************
+* Declaration | Static Functions
+******************************************************************************/
+
+/******************************************************************************
+* Definition  | Static Functions
+******************************************************************************/
+
+/******************************************************************************
+* Definition  | Public Functions
+******************************************************************************/
+
+/******************************************************************************
+* EOF - NO CODE AFTER THIS LINE
+******************************************************************************/
