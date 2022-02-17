@@ -379,7 +379,7 @@ typedef struct __attribute__ ((aligned (4)))
 		}as_addr;
 		struct __attribute__((packed))
 		{
-			void (*func)(uint8_t*,uint8_t,uint32_t arg);
+			int (*func)(uint8_t*,uint8_t,uint32_t arg);
 			uint32_t func_arg;
 		}as_func;
 	}data;
