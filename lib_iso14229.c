@@ -1046,8 +1046,20 @@ void iso14992_srvc_read_data_by_localid()
 			}
 			else
 			{
-				data_buffer_sz = *((uint8_t*)current_local_id->data.as_addr.size);
-				memmove(data_buffer,current_local_id->data.as_addr.address,data_buffer_sz);
+				if(current_local_id->data.as_addr.as_msb == 1)
+				{
+					for(int tc = 0;tc < current_local_id->data.as_addr.size; tc++)
+					{
+						data_buffer[tc] = *(((uint8_t*)current_local_id->data.as_addr.address)+current_local_id->data.as_addr.size-(tc+1));
+
+					}
+				}
+				else
+				{
+					memmove(data_buffer,current_local_id->data.as_addr.address,current_local_id->data.as_addr.size);
+
+				}
+				data_buffer_sz = current_local_id->data.as_addr.size;
 			}
 		}
 		else if(current_local_id->type == RDBID_AS_RETVAL_OF_FUNC)

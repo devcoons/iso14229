@@ -350,7 +350,8 @@ typedef struct __attribute__ ((aligned (4)))
 		struct __attribute__((packed))
 		{
 			void* address;
-			void* size;
+			uint8_t size;
+			uint8_t as_msb;
 		}as_addr;
 		struct __attribute__((packed))
 		{
