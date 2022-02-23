@@ -264,6 +264,14 @@ typedef enum
 
 typedef enum
 {
+	WRBID_AS_MEMORY_ADDRESS = 0x02,
+	WRBID_AS_RETVAL_OF_FUNC = 0x08
+}uds_write_data_by_id_type;
+
+/* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
+
+typedef enum
+{
 	RD_INACTIVE 	= 0x10,
 	RD_ACTIVE 		= 0x20,
 	RD_NOT_EXISTS   = 0x00
@@ -288,6 +296,19 @@ typedef enum
 	RTN_RESULT 	 = 0x03,
 	RTN_CONTINUE = 0x10
 }routine_command;
+
+/* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
+
+typedef enum
+{
+	VAR_TYPE_u8 = 0x11,
+	VAR_TYPE_i8 = 0x12,
+	VAR_TYPE_u16 = 0x21,
+	VAR_TYPE_i16 = 0x22,
+	VAR_TYPE_u32 = 0x41,
+	VAR_TYPE_i32 = 0x42,
+	VAR_TYPE_arr = 0x19,
+}variable_type;
 
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
 
@@ -329,7 +350,8 @@ typedef struct __attribute__ ((aligned (4)))
 		struct __attribute__((packed))
 		{
 			void* address;
-			void* size;
+			uint8_t size;
+			uint8_t as_msb;
 		}as_addr;
 		struct __attribute__((packed))
 		{
@@ -340,6 +362,31 @@ typedef struct __attribute__ ((aligned (4)))
 	uint32_t session;
 	uint32_t security_level;
 }uds_read_data_by_id_t;
+
+/* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
+
+typedef struct __attribute__ ((aligned (4)))
+{
+	uint16_t id;
+	uds_write_data_by_id_type type;
+	uint8_t fnr_enabled;
+	union
+	{
+		struct __attribute__((packed))
+		{
+			void* address;
+			void* size;
+			variable_type type;
+		}as_addr;
+		struct __attribute__((packed))
+		{
+			int (*func)(uint8_t*,uint8_t,uint32_t arg);
+			uint32_t func_arg;
+		}as_func;
+	}data;
+	uint32_t session;
+	uint32_t security_level;
+}uds_write_data_by_id_t;
 
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
 
@@ -428,6 +475,8 @@ extern __attribute__ ((aligned (4)))
 					uds_routine_local_id_t uds_routines[ISO14229_1_NUMOF_ROUTINESBYLOCALID];
 extern __attribute__ ((aligned (4)))
 					uds_read_data_by_id_t uds_read_data_by_id[ISO14229_1_NUMOF_READDATABYID];
+extern __attribute__ ((aligned (4)))
+					uds_write_data_by_id_t uds_write_data_by_id[ISO14229_1_NUMOF_WRITEDATABYID];
 extern __attribute__ ((aligned (4)))
 					uds_tranfer_data_t uds_tranfer_data;
 extern __attribute__ ((aligned (4)))

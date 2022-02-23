@@ -57,7 +57,7 @@ static iso14299_1_sid_t sid_list[] =
 	{.sid = UDS_SRVC_ReadScalingDataByIdentifier, 		.is_supported = iso14229_1_NO },
 	{.sid = UDS_SRVC_ReadDataByPeriodicIdentifier, 		.is_supported = iso14229_1_NO },
 	{.sid = UDS_SRVC_DynamicallyDefineDataIdentifier, 	.is_supported = iso14229_1_NO },
-	{.sid = UDS_SRVC_WriteDataByIdentifier, 		.is_supported = iso14229_1_NO },
+	{.sid = UDS_SRVC_WriteDataByIdentifier, 		.is_supported = iso14229_1_YES },
 	{.sid = UDS_SRVC_WriteMemoryByAddress, 			.is_supported = iso14229_1_NO },
 	{.sid = UDS_SRVC_ClearDiagnosticInformation, 		.is_supported = iso14229_1_NO },
 	{.sid = UDS_SRVC_ReadDTCInformation, 			.is_supported = iso14229_1_NO },
@@ -264,6 +264,8 @@ uint8_t iso14992_process()
 	case UDS_SRVC_DynamicallyDefineDataIdentifier:
 		break;
 	case UDS_SRVC_WriteDataByIdentifier:
+		iso14992_srvc_write_data_by_localid();
+		iso14229_1_timeout_extra_time = 5000;
 		break;
 	case UDS_SRVC_WriteMemoryByAddress:
 		break;
@@ -1044,8 +1046,20 @@ void iso14992_srvc_read_data_by_localid()
 			}
 			else
 			{
-				data_buffer_sz = *((uint8_t*)current_local_id->data.as_addr.size);
-				memmove(data_buffer,current_local_id->data.as_addr.address,data_buffer_sz);
+				if(current_local_id->data.as_addr.as_msb == 1)
+				{
+					for(int tc = 0;tc < current_local_id->data.as_addr.size; tc++)
+					{
+						data_buffer[tc] = *(((uint8_t*)current_local_id->data.as_addr.address)+current_local_id->data.as_addr.size-(tc+1));
+
+					}
+				}
+				else
+				{
+					memmove(data_buffer,current_local_id->data.as_addr.address,current_local_id->data.as_addr.size);
+
+				}
+				data_buffer_sz = current_local_id->data.as_addr.size;
 			}
 		}
 		else if(current_local_id->type == RDBID_AS_RETVAL_OF_FUNC)
@@ -1118,6 +1132,141 @@ void iso14992_srvc_read_data_by_localid()
 
 	}
 	iso14992_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,tb_pos );
+}
+
+/* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
+
+static uint8_t data_buffer_sz;
+static uint8_t data_buffer[129];
+
+void iso14992_srvc_write_data_by_localid()
+{
+	if( iso14229_1_received_indn.msg_sz < 3 )
+	{
+		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+				__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IMLOIF);
+		return;
+	}
+
+	uint32_t pos = 1;
+
+	iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
+
+	uint8_t is_fnr = iso14229_1_received_indn.n_ai.n_tt == N_TA_T_FUNC ? 1 : 0;
+
+
+	uint16_t data_id = 	iso14229_1_received_indn.msg[pos]<<8 | iso14229_1_received_indn.msg[pos+1];
+	pos+=2;
+
+	volatile uds_write_data_by_id_t* current_local_id = NULL;
+
+	uint32_t list_sz = sizeof(uds_write_data_by_id)/sizeof(uds_write_data_by_id_t);
+	uint8_t session_valid = 0;
+	uint8_t security_check = 0;
+
+	for(register uint32_t i = 0;i<list_sz;i++)
+	{
+		if(uds_write_data_by_id[i].id == data_id && uds_write_data_by_id[i].id!=0)
+		{
+			current_local_id = &uds_write_data_by_id[i];
+			break;
+		}
+	}
+
+	if(current_local_id == NULL)
+	{
+		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+				__uds_get_function(iso14229_1_received_indn.msg), UDS_NRC_ROOR);
+		return;
+	}
+
+	if(current_local_id->fnr_enabled == 0 && is_fnr == 1)
+	{
+		return;
+	}
+
+	list_sz = sizeof(uds_sessions) / sizeof(uds_session_t);
+
+	for(register uint32_t i = 0; i < list_sz; i++)
+	{
+		if(uds_sessions[i].id == current_local_id->session && uds_sessions[i].sts == A_ACTIVE)
+			session_valid = 1;
+	}
+
+	if(session_valid == 0)
+	{
+		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+				__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_ROOR);
+		return;
+	}
+
+	uint32_t sa_list_sz = sizeof(uds_security_accesses)/sizeof(uds_security_access_t);
+
+	for(register uint32_t j = 0;j<sa_list_sz;j++)
+	{
+		if(uds_security_accesses[j].access_lvl == current_local_id->security_level && uds_security_accesses[j].sts == SA_ACTIVE)
+			security_check = 1;
+	}
+
+	if(security_check == 0 && current_local_id->security_level != 0xFF)
+	{
+		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+				__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_SAD);
+		return;
+	}
+
+	if(current_local_id->type == WRBID_AS_MEMORY_ADDRESS)
+	{
+		switch(current_local_id->data.as_addr.type)
+		{
+		case VAR_TYPE_u8:
+		case VAR_TYPE_i8:
+		case VAR_TYPE_arr:
+			memmove(current_local_id->data.as_addr.address,(iso14229_1_received_indn.msg + 3),iso14229_1_received_indn.msg_sz - 3);
+			break;
+		case VAR_TYPE_u16:
+		case VAR_TYPE_i16:
+			(*((uint16_t*)current_local_id->data.as_addr.address)) = ((uint16_t)(*(uint8_t*)(iso14229_1_received_indn.msg + 3))) << 8 |  ((uint16_t)(*(uint8_t*)(iso14229_1_received_indn.msg + 4)));
+			break;
+		case VAR_TYPE_u32:
+		case VAR_TYPE_i32:
+			(*((uint32_t*)current_local_id->data.as_addr.address)) = ((uint32_t)(*(uint8_t*)(iso14229_1_received_indn.msg + 3))) << 24
+																	|  ((uint32_t)(*(uint8_t*)(iso14229_1_received_indn.msg + 4))) << 16
+																	|  ((uint32_t)(*(uint8_t*)(iso14229_1_received_indn.msg + 5))) << 8
+																	|  ((uint32_t)(*(uint8_t*)(iso14229_1_received_indn.msg + 6))) ;
+			break;
+		default:
+			iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+					__uds_get_function(iso14229_1_received_indn.msg), UDS_NRC_VMSCNC04);
+			return;
+		}
+	}
+	else if(current_local_id->type == WRBID_AS_RETVAL_OF_FUNC)
+	{
+		if(current_local_id->data.as_func.func == NULL)
+		{
+			iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+					__uds_get_function(iso14229_1_received_indn.msg), UDS_NRC_VMSCNC04);
+			return;
+		}
+		if(current_local_id->data.as_func.func(iso14229_1_received_indn.msg + 3,iso14229_1_received_indn.msg_sz - 3,current_local_id->data.as_func.func_arg) != 0)
+		{
+			iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+					__uds_get_function(iso14229_1_received_indn.msg), UDS_NRC_VMSCNC05);
+			return;
+		}
+	}
+	else
+	{
+		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+				__uds_get_function(iso14229_1_received_indn.msg), UDS_NRC_VMSCNC04);
+		return;
+	}
+
+	iso14229_1_temporary_buffer[1] = (data_id & 0xFF00) >> 8;
+	iso14229_1_temporary_buffer[2] = (data_id & 0x00FF) >> 0;
+
+	iso14992_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,3 );
 }
 
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
