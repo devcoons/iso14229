@@ -524,6 +524,7 @@ void iso14229_1_srvc_tranfer_data();
 void iso14229_1_srvc_request_transfer_exit();
 void iso14229_1_uds_srvc_request_download();
 void iso14992_srvc_read_data_by_localid();
+void iso14992_srvc_write_data_by_localid();
 void iso14229_1_uds_srvc_ecu_reset();
 
 void iso14229_1_srvc_diagnostic_session_control();
