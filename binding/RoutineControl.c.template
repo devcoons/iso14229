@@ -36,7 +36,9 @@
 
 static uint8_t routine_F001_jump_to_boot(void* _self, routine_command cmd, uint8_t* args,uint16_t sz)
 {
+#if defined(HAL_ICACHE_MODULE_ENABLED)
 	HAL_ICACHE_Invalidate();
+#endif
 	uds_routine_local_id_t* self = (uds_routine_local_id_t* )_self;
 
 	if(cmd != RTN_START)
@@ -65,7 +67,9 @@ static uint8_t routine_F001_jump_to_boot(void* _self, routine_command cmd, uint8
 
 static uint8_t routine_F000_programming_validation(void* _self, routine_command cmd, uint8_t* args,uint16_t sz)
 {
+#if defined(HAL_ICACHE_MODULE_ENABLED)
 	HAL_ICACHE_Invalidate();
+#endif
 	uds_routine_local_id_t* self = (uds_routine_local_id_t* )_self;
 	uint32_t start_address = 0;
 	uint32_t length = 0;
@@ -140,7 +144,9 @@ static volatile uint32_t end_address = 0;
 
 static uint8_t rountine_FF00_flash_erase(void* _self, routine_command cmd, uint8_t* args,uint16_t sz)
 {
+#if defined(HAL_ICACHE_MODULE_ENABLED)
 	HAL_ICACHE_Invalidate();
+#endif
 	uds_routine_local_id_t* self = (uds_routine_local_id_t* )_self;
 
 
@@ -232,7 +238,9 @@ static uint8_t rountine_FF00_flash_erase(void* _self, routine_command cmd, uint8
 
 static uint8_t routine_F002_get_crc_from_to(void* _self, routine_command cmd, uint8_t* args,uint16_t sz)
 {
+#if defined(HAL_ICACHE_MODULE_ENABLED)
 	HAL_ICACHE_Invalidate();
+#endif
 	uds_routine_local_id_t* self = (uds_routine_local_id_t* )_self;
 
 	if(cmd != RTN_START)
