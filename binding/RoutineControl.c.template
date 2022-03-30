@@ -281,7 +281,9 @@ static uint8_t routine_F002_get_crc_from_to(void* _self, routine_command cmd, ui
 		uint16_t mcrc = 0xFFFF;
 		uint32_t size = end_address - start_address;
 
-		HAL_ICACHE_Invalidate();
+#if defined(HAL_ICACHE_MODULE_ENABLED)
+	HAL_ICACHE_Invalidate();
+#endif
 		mcrc = crc16_ccitt(mcrc, (uint8_t*)start_address, size);
 		result[0] = (uint8_t)((mcrc & 0xff00) >> 8);
 		result[1] = (uint8_t)((mcrc & 0x00ff) >> 0);
