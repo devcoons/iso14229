@@ -1249,6 +1249,14 @@ void iso14992_srvc_write_data_by_localid()
 					__uds_get_function(iso14229_1_received_indn.msg), UDS_NRC_VMSCNC04);
 			return;
 		}
+
+		if(current_local_id->data.as_func.size!=0 && current_local_id->data.as_func.size != iso14229_1_received_indn.msg_sz - 3)
+		{
+			iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+					__uds_get_function(iso14229_1_received_indn.msg), UDS_NRC_IMLOIF);
+			return;
+		}
+
 		if(current_local_id->data.as_func.func(iso14229_1_received_indn.msg + 3,iso14229_1_received_indn.msg_sz - 3,current_local_id->data.as_func.func_arg) != 0)
 		{
 			iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
