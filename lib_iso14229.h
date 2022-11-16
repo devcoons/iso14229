@@ -511,6 +511,12 @@ void iso14229_postinit();
  */
 uint8_t send_frame(cbus_id_type id_type, uint32_t id, cbus_fr_format fr_fmt, uint8_t dlc, uint8_t* dt);
 
+/*
+ * SHIM: This function should be implemented by
+ * the user to write data in the Internal Flash Memory.
+ */
+uint8_t iso14229_ecu_flash_write(uint32_t address, uint8_t* data_array,uint32_t data_array_sz);
+
 /******************************************************************************
 * Declaration | Public (lib-level) Functions
 ******************************************************************************/
