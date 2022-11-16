@@ -1,0 +1,391 @@
+/*!
+	@file   RoutineControl.c
+	@brief  <brief description here>
+	@t.odo	-
+*/
+/******************************************************************************
+* Preprocessor Definitions & Macros
+******************************************************************************/
+
+#define FLASH_ERASE_MIN_LIMIT 0x08020000
+#define FLASH_ERASE_MAX_LIMIT 0x08F00000
+
+/******************************************************************************
+* Includes
+******************************************************************************/
+
+#include "lib_iso14229.h"
+#include "drv_flash.h"
+#include "lib_jmp.h"
+#include "lib_ifm.h"
+
+/******************************************************************************
+* Enumerations, structures & Variables
+******************************************************************************/
+
+static uint8_t temporary_buffer[512];
+
+/******************************************************************************
+* Declaration | Static Functions
+******************************************************************************/
+
+/******************************************************************************
+* Definition  | Static Functions
+******************************************************************************/
+
+static uint8_t routine_F001_jump_to_boot(void* _self, routine_command cmd, uint8_t* args,uint16_t sz)
+{
+#if defined(HAL_ICACHE_MODULE_ENABLED)
+	HAL_ICACHE_Invalidate();
+#endif
+	uds_routine_local_id_t* self = (uds_routine_local_id_t* )_self;
+
+	if(cmd != RTN_START)
+	{
+		self->sts = self->default_sts;
+		return UDS_NRC_SFNS;
+	}
+
+	if(args != NULL || sz != 0)
+	{
+		self->sts = self->default_sts;
+		return UDS_NRC_IMLOIF;
+	}
+	if((*(__IO uint32_t*)0x8020020) != JMP_APPICATION_VALIDATION_VALUE)
+	{
+		self->sts = self->default_sts;
+		return UDS_NRC_VMSCNC00;
+	}
+
+	NVIC_SystemReset();
+
+	self->sts = self->default_sts;
+	return 0;
+}
+
+
+static uint8_t routine_F000_programming_validation(void* _self, routine_command cmd, uint8_t* args,uint16_t sz)
+{
+#if defined(HAL_ICACHE_MODULE_ENABLED)
+	HAL_ICACHE_Invalidate();
+#endif
+	uds_routine_local_id_t* self = (uds_routine_local_id_t* )_self;
+	uint32_t start_address = 0;
+	uint32_t length = 0;
+	uint16_t fn_crc = 0;
+	uint8_t write_properties = 0;
+	uint8_t date[8]={0};
+	uint8_t operator[2]={0};
+	uint16_t flash_crc = 0xFFFF;
+
+	if(cmd != RTN_START)
+	{
+		self->sts = self->default_sts;
+		return UDS_NRC_SFNS;
+	}
+
+	if(args == NULL || sz != 20)
+	{
+		self->sts = self->default_sts;
+		return UDS_NRC_IMLOIF;
+	}
+
+	start_address = ((uint32_t)args[0] << 24);
+	start_address |= ((uint32_t)args[1] << 16);
+	start_address |= ((uint32_t)args[2] << 8);
+	start_address |= (uint32_t)args[3];
+
+	length = 0;
+	length |= ((uint32_t)args[4] << 16);
+	length |= ((uint32_t)args[5] << 8);
+	length |= (uint32_t)args[6];
+
+	fn_crc = ((uint16_t)args[7] << 8);
+	fn_crc |= (uint16_t)args[8];
+
+	date[0] = args[9];
+	date[1] = args[10];
+	date[2] = args[11];
+	date[3] = args[12];
+	date[4] = args[13];
+	date[5] = args[14];
+	date[6] = args[15];
+	date[7] = args[16];
+
+	operator[0] = args[17];
+	operator[1] = args[18];
+
+	write_properties = (uint16_t)args[19];
+
+	if(start_address < FLASH_ERASE_MIN_LIMIT  ||  start_address > FLASH_ERASE_MAX_LIMIT || (start_address+length) > FLASH_ERASE_MAX_LIMIT)
+	{
+		self->sts = self->default_sts;
+		return UDS_NRC_IMLOIF;
+	}
+
+	flash_crc = crc16_ccitt(flash_crc, (uint8_t*)(start_address), length);
+
+	if(flash_crc != fn_crc)
+	{
+		self->sts = self->default_sts;
+		return UDS_NRC_VMSCNC00;
+	}
+
+	if((*(__IO uint32_t*)start_address) != JMP_APPICATION_VALIDATION_VALUE)
+	{
+		self->sts = self->default_sts;
+		return UDS_NRC_VMSCNC00;
+	}
+
+	if(write_properties == 1)
+	{
+#if defined(HAL_ICACHE_MODULE_ENABLED)
+	HAL_ICACHE_Invalidate();
+#endif
+		for(int i=0;i<0x20;i++)
+		{
+			uint8_t v = *(__IO uint8_t*)((start_address-0x20)+i);
+			if(v!=0xFF)
+			{
+				self->sts = self->default_sts;
+				return UDS_NRC_VMSCNC02;
+			}
+		}
+
+		memset(temporary_buffer,0,512);
+
+		temporary_buffer[2] = 0x21;
+		temporary_buffer[3] = 0x08;
+		memmove(&temporary_buffer[4],date,8);
+
+		temporary_buffer[12] = 0x22;
+		temporary_buffer[13] = 0x02;
+		memmove(&temporary_buffer[14],operator,2);
+
+		temporary_buffer[16] = 0x23;
+		temporary_buffer[17] = 0x04;
+		temporary_buffer[18] = (uint8_t)((length & 0xFF000000)>> 24);
+		temporary_buffer[19] = (uint8_t)((length & 0x00FF0000)>> 16);
+		temporary_buffer[20] = (uint8_t)((length & 0x0000FF00)>> 8);
+		temporary_buffer[21] = (uint8_t)((length & 0x000000FF)>> 0);
+
+		temporary_buffer[22] = 0x24;
+		temporary_buffer[23] = 0x02;
+		temporary_buffer[24] = (uint8_t)((fn_crc & 0xFF00)>> 8);
+		temporary_buffer[25] = (uint8_t)((fn_crc & 0x00FF)>> 0);
+
+		uint16_t mcrc = 0xFFFF;
+
+		for(register int i = 0; i < 30; i++)
+		{
+			mcrc = crc16_ccitt(mcrc, &temporary_buffer[i+2], 1);
+		}
+
+		temporary_buffer[0] = (uint8_t)((mcrc & 0xFF00)>> 8);
+		temporary_buffer[1] = (uint8_t)((mcrc & 0x00FF)>> 0);
+
+
+		if(flash_write(start_address-0x20, temporary_buffer, 32) != I_OK)
+		{
+			self->sts = self->default_sts;
+			return UDS_NRC_VMSCNC03;
+		}
+		HAL_Delay(1);
+#if defined(HAL_ICACHE_MODULE_ENABLED)
+	HAL_ICACHE_Invalidate();
+#endif
+		HAL_FLASH_Unlock();
+
+		for(int i=0;i<0x20;i++)
+		{
+
+			volatile uint8_t l = *((__IO uint8_t*)((start_address-0x20)+i));
+			__DSB();
+			__ISB();
+
+			if(l!=temporary_buffer[i])
+			{
+				self->sts = self->default_sts;
+				return UDS_NRC_VMSCNC03;
+			}
+		}
+		HAL_FLASH_Lock();
+	}
+	self->sts = self->default_sts;
+	return 0;
+}
+
+
+static uint16_t rountine_0001_flash_erase_step = 0;
+static uint16_t rountine_0001_flash_erase_max_steps = 0;
+static uint8_t result[5] = {0};
+
+static volatile uint32_t start_address = 0;
+static volatile uint32_t end_address = 0;
+
+static uint8_t rountine_FF00_flash_erase(void* _self, routine_command cmd, uint8_t* args,uint16_t sz)
+{
+#if defined(HAL_ICACHE_MODULE_ENABLED)
+	HAL_ICACHE_Invalidate();
+#endif
+	uds_routine_local_id_t* self = (uds_routine_local_id_t* )_self;
+
+	if(cmd != RTN_START && cmd != RTN_RESULT && cmd != RTN_CONTINUE)
+	{
+		self->sts = self->default_sts;
+		return UDS_NRC_SFNS;
+	}
+
+	if(cmd == RTN_START && (args == NULL || sz != 8))
+	{
+		self->sts = self->default_sts;
+		return UDS_NRC_IMLOIF;
+	}
+
+	if(cmd == RTN_RESULT && (args != NULL || sz != 0))
+	{
+		self->sts = self->default_sts;
+		return UDS_NRC_IMLOIF;
+	}
+
+	if(cmd == RTN_START && self->sts == RTN_ACTIVE)
+	{
+		return UDS_NRC_RSE;
+	}
+
+	if(cmd == RTN_START)
+	{
+		start_address = ((uint32_t)args[0] << 24);
+		start_address |= ((uint32_t)args[1] << 16);
+		start_address |= ((uint32_t)args[2] << 8);
+		start_address |= (uint32_t)args[3];
+		end_address = ((uint32_t)args[4] << 24) | ((uint32_t)args[5] << 16) | ((uint32_t)args[6] << 8) | (uint32_t)args[7];
+		__DSB();
+		__ISB();
+		start_address = start_address - (start_address % FLASH_SECTION_SIZE);
+		end_address = end_address - (end_address % FLASH_SECTION_SIZE);
+
+		if(start_address != FLASH_ERASE_MIN_LIMIT  ||  end_address >= FLASH_ERASE_MAX_LIMIT || start_address > end_address)
+		{
+			self->sts = self->default_sts;
+			return UDS_NRC_ROOR;
+		}
+		self->sts = RTN_ACTIVE;
+		rountine_0001_flash_erase_step = 0;
+		rountine_0001_flash_erase_max_steps =(end_address - start_address) / FLASH_SECTION_SIZE;
+	}
+
+	if(cmd == RTN_RESULT)
+	{
+		result[0] = self->sts;
+		if(self->sts == RTN_ACTIVE)
+		{
+			result[1] = (rountine_0001_flash_erase_step & 0xFF00) >> 8;
+			result[2] = (rountine_0001_flash_erase_step & 0x00FF) >> 0;
+			result[3] = (rountine_0001_flash_erase_max_steps & 0xFF00) >> 8;
+			result[4] = (rountine_0001_flash_erase_max_steps & 0x00FF) >> 0;
+			self->rst_sz = 1;
+		}
+		else
+		{
+			self->rst_sz = 1;
+		}
+		self->rst = result;
+		return 0;
+	}
+
+	if(cmd == RTN_CONTINUE)
+	{
+		if(rountine_0001_flash_erase_step <= rountine_0001_flash_erase_max_steps)
+		{
+			flash_erase_nb(start_address + (rountine_0001_flash_erase_step*FLASH_SECTION_SIZE),1);
+			rountine_0001_flash_erase_step++;
+			return 0;
+		}
+		rountine_0001_flash_erase_step = 0;
+		self->sts = RTN_INACTIVE;
+		return 0;
+	}
+	return 0;
+}
+
+static uint8_t routine_F002_get_crc_from_to(void* _self, routine_command cmd, uint8_t* args,uint16_t sz)
+{
+#if defined(HAL_ICACHE_MODULE_ENABLED)
+	HAL_ICACHE_Invalidate();
+#endif
+	uds_routine_local_id_t* self = (uds_routine_local_id_t* )_self;
+
+	if(cmd != RTN_START)
+	{
+		self->rst_sz = 0;
+		self->sts = self->default_sts;
+		return UDS_NRC_SFNS;
+	}
+
+	if(cmd == RTN_START)
+	{
+		if(args == NULL || sz != 8)
+		{
+			self->sts = self->default_sts;
+			return UDS_NRC_IMLOIF;
+		}
+
+		uint32_t start_address = 0;
+		uint32_t end_address = 0;
+
+		start_address = ((uint32_t)args[0] << 24);
+		start_address |= ((uint32_t)args[1] << 16);
+		start_address |= ((uint32_t)args[2] << 8);
+		start_address |= (uint32_t)args[3];
+
+		end_address = ((uint32_t)args[4] << 24);
+		end_address |= ((uint32_t)args[5] << 16);
+		end_address |= ((uint32_t)args[6] << 8);
+		end_address |= (uint32_t)args[7];
+
+		if(end_address < start_address)
+		{
+			self->sts = self->default_sts;
+			return UDS_NRC_ROOR;
+		}
+
+		uint16_t mcrc = 0xFFFF;
+		uint32_t size = end_address - start_address;
+
+#if defined(HAL_ICACHE_MODULE_ENABLED)
+	HAL_ICACHE_Invalidate();
+#endif
+		mcrc = crc16_ccitt(mcrc, (uint8_t*)start_address, size);
+		result[0] = (uint8_t)((mcrc & 0xff00) >> 8);
+		result[1] = (uint8_t)((mcrc & 0x00ff) >> 0);
+		self->rst = result;
+		self->rst_sz = 2;
+		self->sts = self->default_sts;
+		return 0;
+	}
+
+	if(cmd == RTN_CONTINUE || cmd == RTN_RESULT || cmd == RTN_STOP)
+	{
+		self->sts = self->default_sts;
+		return UDS_NRC_SFNS;
+	}
+
+	return 0;
+}
+
+uds_routine_local_id_t uds_routines[] =
+{
+		{.id = 0xFF00, .session = UDS_DIAG_PRGS, .security_level = 0x09, .default_sts = RTN_INACTIVE, .sts = RTN_INACTIVE, .rountine = rountine_FF00_flash_erase},
+		{.id = 0xF000, .session = UDS_DIAG_PRGS, .security_level = 0x09, .default_sts = RTN_INACTIVE, .sts = RTN_INACTIVE, .rountine = routine_F000_programming_validation},
+		{.id = 0xF001, .session = UDS_DIAG_DS, .security_level = 0xFF, .default_sts = RTN_INACTIVE, .sts = RTN_INACTIVE, .rountine = routine_F001_jump_to_boot},
+		{.id = 0xF002, .session = UDS_DIAG_DS, .security_level = 0xFF, .default_sts = RTN_INACTIVE, .sts = RTN_INACTIVE, .rountine = routine_F002_get_crc_from_to}
+};
+
+/******************************************************************************
+* Definition  | Public Functions
+******************************************************************************/
+
+/******************************************************************************
+* EOF - NO CODE AFTER THIS LINE
+******************************************************************************/

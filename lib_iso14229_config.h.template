@@ -1,0 +1,22 @@
+/*!
+	@file   iso14229_1_config.h
+    @brief  <brief description here>
+	@t.odo	-
+*/
+/******************************************************************************
+* Preprocessor Definitions & Macros
+******************************************************************************/
+
+#ifndef ISO14229_1_CONFIG_H_
+#define ISO14229_1_CONFIG_H_
+
+#define ISO14229_1_DEVICE_ADDRESS				0x19
+#define ISO14229_1_NUMOF_ROUTINESBYLOCALID 		4
+#define ISO14229_1_NUMOF_READDATABYID 	  		20
+#define ISO14229_1_NUMOF_SECURITYACCESSES  		5
+#define ISO14229_1_NUMOF_DIAGSESSIONS	  		5
+
+/******************************************************************************
+* EOF - NO CODE AFTER THIS LINE
+******************************************************************************/
+#endif

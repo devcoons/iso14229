@@ -1,0 +1,45 @@
+/*!
+	@file   DiagnosticSessions.c
+	@brief  <brief description here>
+	@t.odo	-
+*/
+/******************************************************************************
+* Preprocessor Definitions & Macros
+******************************************************************************/
+
+
+
+/******************************************************************************
+* Includes
+******************************************************************************/
+
+#include "lib_iso14229.h"
+
+/******************************************************************************
+* Enumerations, structures & Variables
+******************************************************************************/
+
+uds_session_t uds_sessions[] =
+{
+	{.id = UDS_DIAG_DS,		.default_sts = A_ACTIVE,    .sts = A_ACTIVE, .on_opening = NULL,	.on_unlocking = NULL, .on_closing = NULL, .timeout.time_limit = 5000, .timeout.max_response = 100},
+	{.id = UDS_DIAG_PRGS, 	.default_sts = A_INACTIVE,	.sts = A_INACTIVE, .on_opening = NULL,	.on_unlocking = NULL, .on_closing = NULL, .timeout.time_limit = 5000, .timeout.max_response = 100},
+	{.id = UDS_DIAG_EXTDS,	.default_sts = A_LOCKED,	.sts = A_LOCKED, .on_opening = NULL,	.on_unlocking = NULL, .on_closing = NULL, .timeout.time_limit = 5000, .timeout.max_response = 100},
+	{.id = UDS_DIAG_SSDS,	.default_sts = A_LOCKED,	.sts = A_LOCKED, .on_opening = NULL,	.on_unlocking = NULL, .on_closing = NULL, .timeout.time_limit = 5000, .timeout.max_response = 100},
+	{.id = UDS_DIAG_SSS(31),.default_sts = A_LOCKED,	.sts = A_LOCKED, .on_opening = NULL,	.on_unlocking = NULL, .on_closing = NULL, .timeout.time_limit = 5000, .timeout.max_response = 100},
+};
+
+/******************************************************************************
+* Declaration | Static Functions
+******************************************************************************/
+
+/******************************************************************************
+* Definition  | Static Functions
+******************************************************************************/
+
+/******************************************************************************
+* Definition  | Public Functions
+******************************************************************************/
+
+/******************************************************************************
+* EOF - NO CODE AFTER THIS LINE
+******************************************************************************/
