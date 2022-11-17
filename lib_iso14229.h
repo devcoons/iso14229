@@ -389,6 +389,15 @@ typedef struct __attribute__ ((aligned (4)))
 }uds_write_data_by_id_t;
 
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
+typedef struct __attribute__ ((aligned (4)))
+{
+	uint32_t id;
+	uint32_t session; // pag 39 non-defaultSession
+	uint32_t security_level;
+}uds_io_control_by_id_t;
+
+
+/* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
 
 typedef struct __attribute__ ((aligned (4)))
 {
@@ -487,6 +496,8 @@ extern __attribute__ ((aligned (4)))
 					uds_ecu_reset_t uds_ecu_reset;
 extern __attribute__ ((aligned (4)))
 					uds_session_t uds_sessions[ISO14229_1_NUMOF_DIAGSESSIONS] ;
+extern __attribute__ ((aligned (4)))
+				    uds_io_control_by_id_t uds_io_control_by_id[ISO14229_1_NUMOF_IOCONTROL] ;
 
 /******************************************************************************
 * Declaration | Public Functions
@@ -529,7 +540,7 @@ void iso14229_1_uds_srvc_ecu_reset();
 
 void iso14229_1_srvc_diagnostic_session_control();
 void iso14992_1_srvc_diagnostic_session_refresh_timeout();
-
+void iso14229_1_srvc_input_output_control_by_identifier();
 /******************************************************************************
 * EOF - NO CODE AFTER THIS LINE
 ******************************************************************************/
