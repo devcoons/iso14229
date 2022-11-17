@@ -31,6 +31,7 @@ SOFTWARE.
 
 #include "lib_iso14229.h"
 #include "drv_canbus.h"
+#include "drv_flash.h"
 #include "user_code.h"
 
 /******************************************************************************
@@ -65,10 +66,16 @@ uint32_t iso14229_getms()
 	return HAL_GetTick();
 }
 
-void iso14992_postinit()
+void iso14229_postinit()
 {
 	canbus_callback_add(iso14229_cbh, 0x18DA0000 | (ISO14229_1_DEVICE_ADDRESS << 8), 0xFFFFFF00, FDCAN_EXTENDED_ID, canbus_callback);
 	canbus_callback_add(iso14229_cbh, 0x18DB0000, 0xFFFF0000, FDCAN_EXTENDED_ID, canbus_callback);
+}
+
+uint8_t iso14229_ecu_flash_write(uint32_t address, uint8_t* data_array,uint32_t data_array_sz)
+{
+	flash_write(address, data_array, data_array_sz);
+	return 0;
 }
 
 uint8_t send_frame(cbus_id_type id_type, uint32_t id, cbus_fr_format fr_fmt, uint8_t dlc, uint8_t* dt)

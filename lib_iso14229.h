@@ -256,6 +256,22 @@ typedef enum
 
 typedef enum
 {
+	IOC_INACTIVE 	= 0x10,
+	IOC_ACTIVE 		= 0x20
+}iocontrol_status;
+
+/* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
+
+typedef enum
+{
+	IOC_INPUT 		= 0x10,
+	IOC_OUTPUT 		= 0x20
+}iocontrol_type;
+
+/* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
+
+typedef enum
+{
 	RDBID_AS_MEMORY_ADDRESS = 0x02,
 	RDBID_AS_RETVAL_OF_FUNC = 0x08
 }uds_read_data_by_id_type;
@@ -390,13 +406,19 @@ typedef struct __attribute__ ((aligned (4)))
 }uds_write_data_by_id_t;
 
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
+
 typedef struct __attribute__ ((aligned (4)))
 {
-	uint32_t id;
+	uint16_t id;
 	uint32_t session; // pag 39 non-defaultSession
 	uint32_t security_level;
+	iocontrol_type type;
+	iocontrol_status sts;
+	variable_type var_type;
+	uint32_t ptr_iocontrol;
+	uint32_t ptr_inactive;
+	uint32_t out_val;
 }uds_io_control_by_id_t;
-
 
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
 
@@ -498,50 +520,144 @@ extern __attribute__ ((aligned (4)))
 extern __attribute__ ((aligned (4)))
 					uds_session_t uds_sessions[ISO14229_1_NUMOF_DIAGSESSIONS] ;
 extern __attribute__ ((aligned (4)))
-				    uds_io_control_by_id_t uds_io_control_by_id[ISO14229_1_NUMOF_IOCONTROL] ;
+				    uds_io_control_by_id_t uds_io_control_by_id[ISO14229_1_NUMOF_IOCONTROL];
+
+/******************************************************************************
+* Declaration | SHIM Functions (implementation @ lib_iso14229_shim.c)
+******************************************************************************/
+
+/*
+ * SHIM: Get system time. This function should be implemented by
+ * the user. 
+ */
+uint32_t iso14229_getms();
+
+/*
+ * SHIM: This function should be implemented by
+ * the user to perform post actions.
+ */
+void iso14229_postinit();
+
+/*
+ * SHIM: This function should be implemented by
+ * the user to attach the canbus driver.
+ */
+uint8_t send_frame(cbus_id_type id_type, uint32_t id, cbus_fr_format fr_fmt, uint8_t dlc, uint8_t* dt);
+
+/*
+ * SHIM: This function should be implemented by
+ * the user to write data in the Internal Flash Memory.
+ */
+uint8_t iso14229_ecu_flash_write(uint32_t address, uint8_t* data_array,uint32_t data_array_sz);
+
+/******************************************************************************
+* Declaration | Public (lib-level) Functions
+******************************************************************************/
+
+/*
+ * Functions related to service: Routine Control
+ */
+void iso14229_1_srvc_routine_control();
+routine_status iso14229_1_srvc_routines_process();
+
+/*
+ * Functions related to service: Read memory by address
+ */
+void iso14229_1_srvc_read_memory_by_address();
+
+/*
+ * Functions related to service: Security access
+ */
+void iso14229_1_srvc_security_access();
+
+/*
+ * Functions related to service: Tester Present
+ */
+void iso14229_1_srvc_tester_present();
+
+/*
+ * Functions related to service: Transfer Data
+ */
+void iso14229_1_srvc_tranfer_data();
+
+/*
+ * Functions related to service: Transfer Exit
+ */
+void iso14229_1_srvc_request_transfer_exit();
+
+/*
+ * Functions related to service: Download Request
+ */
+void iso14229_1_uds_srvc_request_download();
+
+/*
+ * Functions related to service: Read Data by LocalID
+ */
+void iso14229_srvc_read_data_by_localid();
+
+/*
+ * Functions related to service: Write Data by LocalID
+ */
+void iso14229_srvc_write_data_by_localid();
+
+/*
+ * Functions related to service: ECU Reset
+ */
+void iso14229_1_uds_srvc_ecu_reset();
+
+/*
+ * Functions related to service: Diagnostic Sessions
+ */
+void iso14229_1_srvc_diagnostic_session_control();
+void iso14229_1_srvc_diagnostic_session_refresh_timeout();
+
+/*
+ * Functions related to service: IO Control
+ */
+void iso14229_1_srvc_input_output_control_by_identifier();
+void iso14229_1_srvc_input_output_control_process();
+
+/*
+ * Check if a give service is actually supported
+ */
+iso14229_1_status sid_supported(uint8_t sid);
+
+/*
+ * Send Positive Service Response
+ */
+void iso14229_send(n_ai_t *ai, uint8_t* data, uint16_t sz);
+
+/*
+ * Send Negative Service Response
+ */
+void iso14229_send_NRC(n_ai_t *ai,uint8_t sid, uint8_t code);
+
+/*
+ * Service timeout controller
+ */
+void iso14229_1_srvc_timeouts();
 
 /******************************************************************************
 * Declaration | Public Functions
 ******************************************************************************/
 
-uint32_t iso14229_getms();
-void iso14992_postinit();
-uint8_t send_frame(cbus_id_type id_type, uint32_t id, cbus_fr_format fr_fmt, uint8_t dlc, uint8_t* dt);
+/*
+ * Use this function to initialize the library (once)
+ */
+void iso14229_init();
 
-void iso14992_init();
+/*
+ * Repetively call this function to process any incoming requests or 
+ * pending actions
+ */
+uint8_t iso14229_process();
 
-uint8_t iso14992_process();
-
-uint8_t iso14992_inactive();
-
-iso14229_1_status sid_supported(uint8_t sid);
-
-void iso14992_send(n_ai_t *ai, uint8_t* data, uint16_t sz);
-
-void iso14992_send_NRC(n_ai_t *ai,uint8_t sid, uint8_t code);
-
-void iso14992_1_srvc_timeouts();
+/*
+ * Check if a process is ongoing
+ */
+uint8_t iso14229_inactive();
 
 
-
-/* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
-
-void iso14229_1_srvc_read_memory_by_address();
-
-void iso14229_1_srvc_routine_control();
-routine_status iso14229_1_srvc_routines_process();
-void iso14229_1_srvc_security_access();
-void iso14229_1_srvc_tester_present();
-void iso14229_1_srvc_tranfer_data();
-void iso14229_1_srvc_request_transfer_exit();
-void iso14229_1_uds_srvc_request_download();
-void iso14992_srvc_read_data_by_localid();
-void iso14992_srvc_write_data_by_localid();
-void iso14229_1_uds_srvc_ecu_reset();
-
-void iso14229_1_srvc_diagnostic_session_control();
-void iso14992_1_srvc_diagnostic_session_refresh_timeout();
-void iso14229_1_srvc_input_output_control_by_identifier();
 /******************************************************************************
 * EOF - NO CODE AFTER THIS LINE
 ******************************************************************************/
