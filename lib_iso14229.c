@@ -375,7 +375,7 @@ void iso14992_1_srvc_timeouts()
 
 	for(register uint32_t i = 0;i<list_sz;i++)
 	{
-		if((uds_sessions[i].sts & 0x0F) != 0 && uds_sessions[i].default_sts != A_ACTIVE)
+		if((uds_sessions[i].sts & 0x0F) != 0 )
 		{
 			if((iso14229_getms() - uds_sessions[i].timeout.last_update) >  uds_sessions[i].timeout.time_limit )
 			{
@@ -570,7 +570,7 @@ void iso14229_1_srvc_routine_control()
 
 	for(register uint32_t j = 0;j<sa_list_sz;j++)
 	{
-		if(uds_security_accesses[j].access_lvl == current_routine->security_level && uds_security_accesses[j].sts == SA_ACTIVE)
+		if(uds_security_accesses[j].access_lvl >= current_routine->security_level && uds_security_accesses[j].sts == SA_ACTIVE)
 			security_check = 1;
 	}
 
@@ -1186,7 +1186,7 @@ void iso14992_srvc_read_data_by_localid()
 
 		for(register uint32_t j = 0;j<sa_list_sz;j++)
 		{
-			if(uds_security_accesses[j].access_lvl == current_local_id->security_level && uds_security_accesses[j].sts == SA_ACTIVE)
+			if(uds_security_accesses[j].access_lvl >= current_local_id->security_level && uds_security_accesses[j].sts == SA_ACTIVE)
 				security_check = 1;
 		}
 
@@ -1282,7 +1282,7 @@ void iso14992_srvc_write_data_by_localid()
 
 	for(register uint32_t j = 0;j<sa_list_sz;j++)
 	{
-		if(uds_security_accesses[j].access_lvl == current_local_id->security_level && uds_security_accesses[j].sts == SA_ACTIVE)
+		if(uds_security_accesses[j].access_lvl >= current_local_id->security_level && uds_security_accesses[j].sts == SA_ACTIVE)
 			security_check = 1;
 	}
 
@@ -1327,6 +1327,14 @@ void iso14992_srvc_write_data_by_localid()
 					__uds_get_function(iso14229_1_received_indn.msg), UDS_NRC_VMSCNC04);
 			return;
 		}
+
+		if(current_local_id->data.as_func.size!=0 && current_local_id->data.as_func.size != iso14229_1_received_indn.msg_sz - 3)
+		{
+			iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+					__uds_get_function(iso14229_1_received_indn.msg), UDS_NRC_IMLOIF);
+			return;
+		}
+
 		if(current_local_id->data.as_func.func(iso14229_1_received_indn.msg + 3,iso14229_1_received_indn.msg_sz - 3,current_local_id->data.as_func.func_arg) != 0)
 		{
 			iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
@@ -1409,7 +1417,7 @@ void iso14229_1_uds_srvc_request_download()
 	for(register uint32_t j = 0;j<sa_list_sz;j++)
 	{
 		if(uds_security_accesses[j].sts == SA_ACTIVE &&
-				uds_security_accesses[j].access_lvl == uds_download_request.security_level)
+				uds_security_accesses[j].access_lvl >= uds_download_request.security_level)
 			security_check = 1;
 	}
 

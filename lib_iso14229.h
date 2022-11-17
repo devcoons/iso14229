@@ -382,6 +382,7 @@ typedef struct __attribute__ ((aligned (4)))
 		{
 			int (*func)(uint8_t*,uint8_t,uint32_t arg);
 			uint32_t func_arg;
+			uint32_t size;
 		}as_func;
 	}data;
 	uint32_t session;
