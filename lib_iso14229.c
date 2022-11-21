@@ -34,8 +34,6 @@ SOFTWARE.
 #include "lib_iso14229.h"
 #include "rng.h"
 
-#include "drv_flash.h"
-
 /******************************************************************************
 * Enumerations, structures & Variables
 ******************************************************************************/
@@ -61,7 +59,7 @@ static iso14299_1_sid_t sid_list[] =
 	{.sid = UDS_SRVC_WriteMemoryByAddress, 			.is_supported = iso14229_1_NO },
 	{.sid = UDS_SRVC_ClearDiagnosticInformation, 		.is_supported = iso14229_1_NO },
 	{.sid = UDS_SRVC_ReadDTCInformation, 			.is_supported = iso14229_1_NO },
-	{.sid = UDS_SRVC_InputOutputControlByIdentifier, 	.is_supported = iso14229_1_NO },
+	{.sid = UDS_SRVC_InputOutputControlByIdentifier, 	.is_supported = iso14229_1_YES },
 	{.sid = UDS_SRVC_RoutineControl, 			.is_supported = iso14229_1_YES },
 	{.sid = UDS_SRVC_RequestDownload, 			.is_supported = iso14229_1_YES },
 	{.sid = UDS_SRVC_RequestUpload, 			.is_supported = iso14229_1_NO },
@@ -144,7 +142,7 @@ static void cfm(n_cfm_t* info)
 * Definition  | Public Functions
 ******************************************************************************/
 
-void iso14992_init()
+void iso14229_init()
 {
 	memset(&iso14229_1_received_indn,0,sizeof(n_indn_t));
 	memset(transfer_data_collection,0,UDS_TDC_SZ);
@@ -174,12 +172,12 @@ void iso14992_init()
 	uds_server.last_updated = iso14229_getms();
 	iso15765_init(&uds_server.nl);
 
-	iso14992_postinit();
+	iso14229_postinit();
 }
 
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
 
-uint8_t iso14992_inactive()
+uint8_t iso14229_inactive()
 {
 	if(uds_sessions[0].sts == A_ACTIVE)
 	{
@@ -191,9 +189,9 @@ uint8_t iso14992_inactive()
 
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
 
-uint8_t iso14992_process()
+uint8_t iso14229_process()
 {
-	iso14992_1_srvc_timeouts();
+	iso14229_1_srvc_timeouts();
 
 
 	if((iso15765_process(&uds_server.nl) & N_IDLE) == 0)
@@ -206,6 +204,7 @@ uint8_t iso14992_process()
 		uds_server.last_updated = iso14229_getms();
 	}
 
+	iso14229_1_srvc_input_output_control_process();
 
 	if(uds_server.p_msg != 1)
 		return 0;
@@ -215,9 +214,9 @@ uint8_t iso14992_process()
 	uds_server.p_msg = 0;
 
 	if(sid_supported(iso14229_1_received_indn.msg[0]) != iso14229_1_YES)
-		goto gt_iso14992_process_nack;
+		goto gt_iso14229_process_nack;
 
-	iso14992_1_srvc_diagnostic_session_refresh_timeout();
+	iso14229_1_srvc_diagnostic_session_refresh_timeout();
 
 	uint8_t is_fnr = iso14229_1_received_indn.n_ai.n_tt == N_TA_T_FUNC ? 1 : 0;
 
@@ -251,7 +250,7 @@ uint8_t iso14992_process()
 	case UDS_SRVC_LinkControl:
 		break;
 	case UDS_SRVC_ReadDataByIdentifier:
-		iso14992_srvc_read_data_by_localid();
+		iso14229_srvc_read_data_by_localid();
 		iso14229_1_timeout_extra_time = 5000;
 		break;
 	case UDS_SRVC_ReadMemoryByAddress:
@@ -264,7 +263,7 @@ uint8_t iso14992_process()
 	case UDS_SRVC_DynamicallyDefineDataIdentifier:
 		break;
 	case UDS_SRVC_WriteDataByIdentifier:
-		iso14992_srvc_write_data_by_localid();
+		iso14229_srvc_write_data_by_localid();
 		iso14229_1_timeout_extra_time = 5000;
 		break;
 	case UDS_SRVC_WriteMemoryByAddress:
@@ -274,6 +273,7 @@ uint8_t iso14992_process()
 	case UDS_SRVC_ReadDTCInformation:
 		break;
 	case UDS_SRVC_InputOutputControlByIdentifier:
+		iso14229_1_srvc_input_output_control_by_identifier();
 		break;
 	case UDS_SRVC_RoutineControl:
 		iso14229_1_srvc_routine_control();
@@ -299,8 +299,8 @@ uint8_t iso14992_process()
 	}
 
 	return 1;
-	gt_iso14992_process_nack:
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+	gt_iso14229_process_nack:
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
 				iso14229_1_received_indn.msg[0],UDS_NRC_SNS);
 		return 1;
 }
@@ -342,7 +342,7 @@ iso14229_1_status sub_sid_supported(uint8_t sid,uint8_t sub)
 
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
 
-void iso14992_send(n_ai_t *ai, uint8_t* data, uint16_t sz)
+void iso14229_send(n_ai_t *ai, uint8_t* data, uint16_t sz)
 {
 	out_frame.n_ai.n_ae = ai->n_ae;
 	out_frame.n_ai.n_sa = ISO14229_1_DEVICE_ADDRESS;
@@ -357,24 +357,24 @@ void iso14992_send(n_ai_t *ai, uint8_t* data, uint16_t sz)
 
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
 
-void iso14992_send_NRC(n_ai_t *ai,uint8_t sid, uint8_t code)
+void iso14229_send_NRC(n_ai_t *ai,uint8_t sid, uint8_t code)
 {
 	static uint8_t data[3];
 	data[0] = 0x7F;
 	data[1] = sid;
 	data[2] = code;
-	iso14992_send(ai, data, code == 0 ? 2 : 3);
+	iso14229_send(ai, data, code == 0 ? 2 : 3);
 }
 
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
 
-void iso14992_1_srvc_timeouts()
+void iso14229_1_srvc_timeouts()
 {
 	uint32_t list_sz = sizeof(uds_sessions)/sizeof(uds_session_t);
 
 	for(register uint32_t i = 0;i<list_sz;i++)
 	{
-		if((uds_sessions[i].sts & 0x0F) != 0 && uds_sessions[i].default_sts != A_ACTIVE)
+		if((uds_sessions[i].sts & 0x0F) != 0 )
 		{
 			if((iso14229_getms() - uds_sessions[i].timeout.last_update) >  uds_sessions[i].timeout.time_limit )
 			{
@@ -390,7 +390,7 @@ void iso14992_1_srvc_timeouts()
 				{
 					uds_sessions[j].sts = uds_sessions[j].default_sts;
 				}
-				iso14992_1_srvc_diagnostic_session_refresh_timeout();
+				iso14229_1_srvc_diagnostic_session_refresh_timeout();
 			}
 		}
 	}
@@ -402,13 +402,13 @@ void iso14229_1_srvc_request_transfer_exit()
 {
 	if( (iso14229_1_received_indn.msg_sz != 7))
 	{
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IMLOIF);
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IMLOIF);
 		return;
 	}
 
 	if(uds_tranfer_data.sts != TD_ACTIVE || uds_tranfer_data.remaining_data_len!=0 || transfer_data_collection_pos !=0)
 	{
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_RSE);
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_RSE);
 		return;
 	}
 
@@ -422,11 +422,11 @@ void iso14229_1_srvc_request_transfer_exit()
 		t_buffer[1] = iso14229_1_received_indn.msg[1];
 		uds_tranfer_data.sts = uds_tranfer_data.default_sts;
 		uds_download_request.sts = uds_download_request.default_sts;
-		iso14992_send(&iso14229_1_received_indn.n_ai,t_buffer,2);
+		iso14229_send(&iso14229_1_received_indn.n_ai,t_buffer,2);
 	}
 	else
 	{
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_GPF);
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_GPF);
 		return;
 	}
 	return;
@@ -434,11 +434,165 @@ void iso14229_1_srvc_request_transfer_exit()
 
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
 
+intptr_t iso14229_srvc_ioc_get(uds_io_control_by_id_t* h)
+{
+	if(h->ptr_iocontrol != h->ptr_inactive && h->ptr_iocontrol != (uint32_t)&h->out_val)
+	{
+		h->ptr_inactive;
+		return h->ptr_inactive;
+	}
+	return h->ptr_iocontrol;
+}
+
+void iso14229_1_srvc_input_output_control_process()
+{
+	uint32_t sessions_list_sz = sizeof(uds_sessions) / sizeof(uds_session_t);
+	uint32_t session_valid = -1;
+	for(register uint32_t i = 0; i < sessions_list_sz; i++)
+	{
+		if(uds_sessions[i].sts == A_ACTIVE)
+			session_valid = i;
+	}
+
+	if(session_valid == -1)
+		return;
+
+	uint32_t list_sz = sizeof(uds_io_control_by_id)/sizeof(uds_io_control_by_id_t*);
+	iocontrol_status sts =  RTN_INACTIVE;
+
+	for(register uint32_t i = 0;i<list_sz;i++)
+	{
+		if(uds_io_control_by_id[i]->sts == IOC_ACTIVE && uds_io_control_by_id[i]->session != uds_sessions[session_valid].id)
+		{
+			uds_io_control_by_id[i]->ptr_iocontrol = uds_io_control_by_id[i]->ptr_inactive;
+			///RESET CONTROL TO MATLAB
+
+			uds_io_control_by_id[i]->sts = IOC_INACTIVE;
+		}
+	}
+}
+
+
+/* --- InputOutput control functional unit (ref:iso14229-1(2020) Cap 13 p.297) ------------ */
+void iso14229_1_srvc_input_output_control_by_identifier()
+{
+
+	//Minimum lenght check
+	if(iso14229_1_received_indn.msg_sz < 4)  //pag 301
+	{
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IMLOIF);
+		return;
+	}
+	uds_io_control_by_id_t* current_iocontrol = NULL;
+	//DID supports service 0x2F in active session AND InputOutput is support
+
+	uint32_t list_sz = sizeof(uds_io_control_by_id)/sizeof(uds_io_control_by_id_t*);
+	uint16_t data_id = 	iso14229_1_received_indn.msg[1]<<8 | iso14229_1_received_indn.msg[2];
+	uint8_t session_valid = 0;
+	uint8_t security_check = 0;
+
+	for(register uint32_t i = 0;i<list_sz;i++)
+	{
+		if(uds_io_control_by_id[i]->id == data_id && uds_io_control_by_id[i]->id != 0)
+		{
+			current_iocontrol = uds_io_control_by_id[i];
+			break;
+		}
+	}
+
+	if(current_iocontrol == NULL)  // check if IO is present
+	{
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
+				__uds_get_function(iso14229_1_received_indn.msg), UDS_NRC_ROOR);
+		return;
+	}
+
+	list_sz = sizeof(uds_sessions) / sizeof(uds_session_t);
+
+	for(register uint32_t i = 0; i < list_sz; i++)
+	{
+		if(uds_sessions[i].id == current_iocontrol->session && uds_sessions[i].sts == A_ACTIVE)
+			session_valid = 1;
+	}
+
+	if(session_valid == 0)
+	{
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
+				__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_ROOR);
+		return;
+	}
+	//Total length check
+
+	//controlState is supported  (if applicable) AND control mask is supported (if applicable)
+
+	//authentication check ok? [Not used]
+
+	//Security check ok for requested DID?
+	uint32_t sa_list_sz = sizeof(uds_security_accesses)/sizeof(uds_security_access_t);
+
+	for(register uint32_t j = 0;j<sa_list_sz;j++)
+	{
+		if(uds_security_accesses[j].access_lvl == current_iocontrol->security_level && uds_security_accesses[j].sts == SA_ACTIVE)
+			security_check = 1;
+	}
+
+	if(security_check == 0 && current_iocontrol->security_level != 0xFF)
+	{
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_SAD);
+		return;
+	}
+	//se arrivo qui attivo lo status ioc_active
+
+	uint8_t ioc_param = iso14229_1_received_indn.msg[3];
+	if (ioc_param >= 0x04)// ISOSAERESRVD
+	{
+			iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_ROOR);
+			return;
+	}
+	current_iocontrol->sts = IOC_ACTIVE;
+	//
+	if(current_iocontrol->var_type == VAR_TYPE_u8 || current_iocontrol->var_type == VAR_TYPE_i8)
+		current_iocontrol->out_val = iso14229_1_received_indn.msg[4];
+	else if(current_iocontrol->var_type == VAR_TYPE_u16 || current_iocontrol->var_type == VAR_TYPE_i16)
+		current_iocontrol->out_val = iso14229_1_received_indn.msg[4]<<8 | iso14229_1_received_indn.msg[5];
+	else if(current_iocontrol->var_type == VAR_TYPE_u32 || current_iocontrol->var_type == VAR_TYPE_i32)
+		current_iocontrol->out_val = iso14229_1_received_indn.msg[4]<<24 | iso14229_1_received_indn.msg[5]<<16 | iso14229_1_received_indn.msg[6]<<8 | iso14229_1_received_indn.msg[7];
+
+	switch(ioc_param)
+	{
+		case 00://RCTECU - returnControlToECU
+			current_iocontrol->ptr_iocontrol = current_iocontrol->ptr_inactive;
+			current_iocontrol->sts = IOC_INACTIVE;
+			break;
+		case 01: //RTD - resetToDefault
+			break;
+		case 02://FCS - freezeCurrentState
+			break;
+		case 03://STA - shortTermAdjustment
+			current_iocontrol->ptr_iocontrol = (intptr_t)&current_iocontrol->out_val;
+			current_iocontrol->sts = IOC_ACTIVE;
+			break;
+	}
+	iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg); //SID +0x40
+	iso14229_1_temporary_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);				//0x2F
+	iso14229_1_temporary_buffer[2] = iso14229_1_received_indn.msg[2];									//id
+	iso14229_1_temporary_buffer[3] = iso14229_1_received_indn.msg[3];									//id
+	iso14229_1_temporary_buffer[4] = iso14229_1_received_indn.msg[4];									//val
+
+	iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,5);
+
+	//
+	//
+	//
+
+}
+/* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
+
 void iso14229_1_srvc_routine_control()
 {
 	if(iso14229_1_received_indn.msg_sz < 4)
 	{
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IMLOIF);
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IMLOIF);
 		return;
 	}
 
@@ -462,7 +616,7 @@ void iso14229_1_srvc_routine_control()
 
 	if(current_routine == NULL)
 	{
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai, __uds_get_function(iso14229_1_received_indn.msg), UDS_NRC_ROOR);
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai, __uds_get_function(iso14229_1_received_indn.msg), UDS_NRC_ROOR);
 		return;
 	}
 
@@ -470,7 +624,7 @@ void iso14229_1_srvc_routine_control()
 
 	if(current_routine->fnr_enabled != 1 && is_fnr == 1)
 	{
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai, __uds_get_function(iso14229_1_received_indn.msg), UDS_NRC_ROOR);
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai, __uds_get_function(iso14229_1_received_indn.msg), UDS_NRC_ROOR);
 		return;
 	}
 
@@ -484,7 +638,7 @@ void iso14229_1_srvc_routine_control()
 
 	if(session_valid == 0)
 	{
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_ROOR);
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_ROOR);
 		return;
 	}
 
@@ -492,13 +646,13 @@ void iso14229_1_srvc_routine_control()
 
 	for(register uint32_t j = 0;j<sa_list_sz;j++)
 	{
-		if(uds_security_accesses[j].access_lvl == current_routine->security_level && uds_security_accesses[j].sts == SA_ACTIVE)
+		if(uds_security_accesses[j].access_lvl >= current_routine->security_level && uds_security_accesses[j].sts == SA_ACTIVE)
 			security_check = 1;
 	}
 
 	if(security_check == 0 && current_routine->security_level != 0xFF)
 	{
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_SAD);
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_SAD);
 		return;
 	}
 
@@ -514,7 +668,6 @@ void iso14229_1_srvc_routine_control()
 
 	if(rslt == 0)
 	{
-
 		iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
 		iso14229_1_temporary_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
 		iso14229_1_temporary_buffer[2] = iso14229_1_received_indn.msg[2];
@@ -522,12 +675,11 @@ void iso14229_1_srvc_routine_control()
 		iso14229_1_temporary_buffer[4] = rslt;
 		if(current_routine->rst != NULL && current_routine->rst_sz !=0)
 			memmove(&iso14229_1_temporary_buffer[5],current_routine->rst,current_routine->rst_sz);
-
-		iso14992_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,5+current_routine->rst_sz);
+		iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,5+current_routine->rst_sz);
 	}
 	else
 	{
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),rslt);
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),rslt);
 	}
 
 	return;
@@ -550,7 +702,7 @@ routine_status iso14229_1_srvc_routines_process()
 	}
 
 	if(sts == RTN_ACTIVE)
-		iso14992_1_srvc_diagnostic_session_refresh_timeout();
+		iso14229_1_srvc_diagnostic_session_refresh_timeout();
 
 	return sts;
 }
@@ -582,31 +734,31 @@ void iso14229_1_srvc_security_access()
 
 	if(current_sa == NULL)
 	{
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_SFNS);
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_SFNS);
 		return;
 	}
 
 	if(current_sa->sts == SA_NOT_EXISTS)
 	{
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_SFNS);
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_SFNS);
 		return;
 	}
 
 	if(req_type == 0x00 && current_sa->sts != SA_IN_PROGRESS)
 	{
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_RSE);
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_RSE);
 		return;
 	}
 
 	if(iso14229_1_received_indn.msg_sz != 2  && req_type == 0x01)
 	{
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IMLOIF);
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IMLOIF);
 		return;
 	}
 
 	if(iso14229_1_received_indn.msg_sz != 6  && req_type == 0x00)
 	{
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IMLOIF);
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IMLOIF);
 		return;
 	}
 
@@ -617,7 +769,7 @@ void iso14229_1_srvc_security_access()
 			if( (last_trial_time + (60*60*1000)) > xTaskGetTickCount() )
 			{
 				last_trial_time = xTaskGetTickCount();
-				iso14992_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_RTDNE);
+				iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_RTDNE);
 				return;
 			}
 		}
@@ -626,7 +778,7 @@ void iso14229_1_srvc_security_access()
 			if((last_trial_time + inc_delay*2000) > xTaskGetTickCount())
 			{
 				last_trial_time = xTaskGetTickCount();
-				iso14992_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_RTDNE);
+				iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_RTDNE);
 				return;
 			}
 		}
@@ -642,7 +794,7 @@ void iso14229_1_srvc_security_access()
 		t_buffer[3] = 0;
 		t_buffer[4] = 0;
 		t_buffer[5] = 0;
-		iso14992_send(&iso14229_1_received_indn.n_ai,t_buffer,6);
+		iso14229_send(&iso14229_1_received_indn.n_ai,t_buffer,6);
 		return;
 	}
 
@@ -662,7 +814,7 @@ void iso14229_1_srvc_security_access()
 		t_buffer[3] = (current_sa->current_seed & 0x00FF0000) >> 16;
 		t_buffer[4] = (current_sa->current_seed & 0x0000FF00) >> 8;
 		t_buffer[5] = (current_sa->current_seed & 0x000000FF) >> 0;
-		iso14992_send(&iso14229_1_received_indn.n_ai,t_buffer,6);
+		iso14229_send(&iso14229_1_received_indn.n_ai,t_buffer,6);
 		break;
 
 	case 0x00:
@@ -683,7 +835,7 @@ void iso14229_1_srvc_security_access()
 			current_sa->sts = SA_ACTIVE;
 			t_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
 			t_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
-			iso14992_send(&iso14229_1_received_indn.n_ai,t_buffer,2);
+			iso14229_send(&iso14229_1_received_indn.n_ai,t_buffer,2);
 			return;
 		}
 		else
@@ -691,7 +843,7 @@ void iso14229_1_srvc_security_access()
 			last_trial_time = xTaskGetTickCount();
 			inc_delay+=1;
 			current_sa->sts = current_sa->default_sts;
-			iso14992_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IK);
+			iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IK);
 			return;
 		}
 		break;
@@ -707,13 +859,13 @@ void iso14229_1_srvc_tester_present()
 {
 	if(iso14229_1_received_indn.msg_sz != 2)
 	{
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IMLOIF);
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IMLOIF);
 		return;
 	}
 
 	if(__uds_get_subfunction(iso14229_1_received_indn.msg) != 0)
 	{
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_SFNS);
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_SFNS);
 		return;
 	}
 
@@ -721,9 +873,9 @@ void iso14229_1_srvc_tester_present()
 
 	t_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
 	t_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
-	iso14992_send(&iso14229_1_received_indn.n_ai,t_buffer,2);
+	iso14229_send(&iso14229_1_received_indn.n_ai,t_buffer,2);
 
-	iso14992_1_srvc_diagnostic_session_refresh_timeout();
+	iso14229_1_srvc_diagnostic_session_refresh_timeout();
 }
 
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
@@ -735,13 +887,13 @@ void iso14229_1_srvc_tranfer_data()
 			&& (uds_tranfer_data.block_counter == 0xff && iso14229_1_received_indn.msg[1] != 0x01)
 			&& (uds_tranfer_data.sts == TD_INACTIVE && iso14229_1_received_indn.msg[1] != 0x01)) ))
 	{
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_RSE);
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_RSE);
 		return;
 	}
 
 	if( (iso14229_1_received_indn.msg_sz < 3) || ((iso14229_1_received_indn.msg_sz - 2) > 0x200) )
 	{
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_RSE);
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_RSE);
 		return;
 	}
 	uds_tranfer_data.block_counter = iso14229_1_received_indn.msg[1];
@@ -765,7 +917,7 @@ void iso14229_1_srvc_tranfer_data()
 
 	for(uint32_t i=0;i<(transfer_data_collection_pos-(transfer_data_collection_pos%64));i+=64)
 	{
-		flash_write(uds_tranfer_data.current_address, &transfer_data_collection[i], 64);
+		iso14229_ecu_flash_write(uds_tranfer_data.current_address, &transfer_data_collection[i], 64);
 		t_transfer_data_collection_pos+=64;
 		uds_tranfer_data.current_address+=64;
 		uds_tranfer_data.remaining_data_len -= 64;
@@ -779,7 +931,7 @@ void iso14229_1_srvc_tranfer_data()
 	{
 		memmove(temporary_flash_64bytes,(uint32_t*)uds_tranfer_data.current_address,64);
 		memmove(temporary_flash_64bytes,transfer_data_collection,transfer_data_collection_pos);
-		flash_write(uds_tranfer_data.current_address, temporary_flash_64bytes, 64);
+		iso14229_ecu_flash_write(uds_tranfer_data.current_address, temporary_flash_64bytes, 64);
 		uds_tranfer_data.remaining_data_len -= transfer_data_collection_pos;
 		transfer_data_collection_pos = 0;
 	}
@@ -787,7 +939,7 @@ void iso14229_1_srvc_tranfer_data()
 	t_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
 	t_buffer[1] = iso14229_1_received_indn.msg[1];
 	uds_tranfer_data.sts = TD_ACTIVE;
-	iso14992_send(&iso14229_1_received_indn.n_ai,t_buffer,2);
+	iso14229_send(&iso14229_1_received_indn.n_ai,t_buffer,2);
 	return;
 }
 
@@ -799,7 +951,7 @@ void iso14229_1_srvc_diagnostic_session_control()
 
 	if(iso14229_1_received_indn.msg_sz != 2)
 	{
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
 				__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IMLOIF);
 		return;
 	}
@@ -819,13 +971,13 @@ void iso14229_1_srvc_diagnostic_session_control()
 
 	if(sts == A_NOT_EXISTS || current_session == NULL)
 	{
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
 				__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_SFNS);
 		return;
 	}
 	else if(sts == A_LOCKED)
 	{
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
 				__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_CNC);
 		return;
 	}
@@ -858,14 +1010,14 @@ void iso14229_1_srvc_diagnostic_session_control()
 	t_buffer[4] = (current_session->timeout.time_limit & 0xFF00) >> 8;
 	t_buffer[5] = (current_session->timeout.time_limit & 0x00FF) >> 0;
 
-	iso14992_send(&iso14229_1_received_indn.n_ai,t_buffer,6);
+	iso14229_send(&iso14229_1_received_indn.n_ai,t_buffer,6);
 
 	current_session->timeout.last_update = iso14229_getms();
 }
 
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
 
-void iso14992_1_srvc_diagnostic_session_refresh_timeout()
+void iso14229_1_srvc_diagnostic_session_refresh_timeout()
 {
 	uint32_t list_sz = sizeof(uds_sessions)/sizeof(uds_session_t);
 
@@ -884,7 +1036,7 @@ void iso14229_1_uds_srvc_ecu_reset()
 {
 	if(iso14229_1_received_indn.msg_sz != 2)
 	{
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
 				__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IMLOIF);
 		return;
 	}
@@ -900,7 +1052,7 @@ void iso14229_1_uds_srvc_ecu_reset()
 		uds_server.errn = 0;
 		t_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
 		t_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
-		iso14992_send(&iso14229_1_received_indn.n_ai,t_buffer,2);
+		iso14229_send(&iso14229_1_received_indn.n_ai,t_buffer,2);
 		iso15765_process(&uds_server.nl);
 		do
 		{
@@ -916,7 +1068,7 @@ void iso14229_1_uds_srvc_ecu_reset()
 		uds_server.errn = 0;
 		t_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
 		t_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
-		iso14992_send(&iso14229_1_received_indn.n_ai,t_buffer,2);
+		iso14229_send(&iso14229_1_received_indn.n_ai,t_buffer,2);
 		iso15765_process(&uds_server.nl);
 		do
 		{
@@ -933,7 +1085,7 @@ void iso14229_1_uds_srvc_ecu_reset()
 		uds_server.errn = 0;
 		t_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
 		t_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
-		iso14992_send(&iso14229_1_received_indn.n_ai,t_buffer,2);
+		iso14229_send(&iso14229_1_received_indn.n_ai,t_buffer,2);
 		iso15765_process(&uds_server.nl);
 		do
 		{
@@ -949,7 +1101,7 @@ void iso14229_1_uds_srvc_ecu_reset()
 		uds_server.errn = 0;
 		t_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
 		t_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
-		iso14992_send(&iso14229_1_received_indn.n_ai,t_buffer,2);
+		iso14229_send(&iso14229_1_received_indn.n_ai,t_buffer,2);
 		iso15765_process(&uds_server.nl);
 		do
 		{
@@ -965,7 +1117,7 @@ void iso14229_1_uds_srvc_ecu_reset()
 		uds_server.errn = 0;
 		t_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
 		t_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
-		iso14992_send(&iso14229_1_received_indn.n_ai,t_buffer,2);
+		iso14229_send(&iso14229_1_received_indn.n_ai,t_buffer,2);
 		iso15765_process(&uds_server.nl);
 		do
 		{
@@ -979,7 +1131,7 @@ void iso14229_1_uds_srvc_ecu_reset()
 		break;
 	}
 
-	iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+	iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
 			__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IMLOIF);
 	return;
 }
@@ -989,11 +1141,11 @@ void iso14229_1_uds_srvc_ecu_reset()
 static uint8_t data_buffer_sz;
 static uint8_t data_buffer[129];
 
-void iso14992_srvc_read_data_by_localid()
+void iso14229_srvc_read_data_by_localid()
 {
 	if( iso14229_1_received_indn.msg_sz < 3 || iso14229_1_received_indn.msg_sz%2!=1 )
 	{
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
 				__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IMLOIF);
 		return;
 	}
@@ -1026,7 +1178,7 @@ void iso14992_srvc_read_data_by_localid()
 
 		if(current_local_id == NULL)
 		{
-			iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+			iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
 					__uds_get_function(iso14229_1_received_indn.msg), UDS_NRC_ROOR);
 			return;
 		}
@@ -1040,7 +1192,7 @@ void iso14992_srvc_read_data_by_localid()
 		{
 			if((current_local_id->data.as_addr.size == 0 || current_local_id->data.as_addr.address == NULL))
 			{
-				iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+				iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
 						__uds_get_function(iso14229_1_received_indn.msg), UDS_NRC_VMSCNC04);
 				return;
 			}
@@ -1066,7 +1218,7 @@ void iso14992_srvc_read_data_by_localid()
 		{
 			if(current_local_id->data.as_func.func == NULL)
 			{
-				iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+				iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
 						__uds_get_function(iso14229_1_received_indn.msg), UDS_NRC_VMSCNC04);
 				return;
 			}
@@ -1075,7 +1227,7 @@ void iso14992_srvc_read_data_by_localid()
 				current_local_id->data.as_func.func(data_buffer,&data_buffer_sz,current_local_id->data.as_func.func_arg);
 				if(data_buffer_sz == 0 || data_buffer_sz > 128)
 				{
-					iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+					iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
 							__uds_get_function(iso14229_1_received_indn.msg), UDS_NRC_VMSCNC04);
 					return;
 				}
@@ -1083,11 +1235,10 @@ void iso14992_srvc_read_data_by_localid()
 		}
 		else
 		{
-			iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+			iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
 					__uds_get_function(iso14229_1_received_indn.msg), UDS_NRC_VMSCNC04);
 			return;
 		}
-
 
 		list_sz = sizeof(uds_sessions) / sizeof(uds_session_t);
 
@@ -1099,7 +1250,7 @@ void iso14992_srvc_read_data_by_localid()
 
 		if(session_valid == 0)
 		{
-			iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+			iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
 					__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_ROOR);
 			return;
 		}
@@ -1108,13 +1259,13 @@ void iso14992_srvc_read_data_by_localid()
 
 		for(register uint32_t j = 0;j<sa_list_sz;j++)
 		{
-			if(uds_security_accesses[j].access_lvl == current_local_id->security_level && uds_security_accesses[j].sts == SA_ACTIVE)
+			if(uds_security_accesses[j].access_lvl >= current_local_id->security_level && uds_security_accesses[j].sts == SA_ACTIVE)
 				security_check = 1;
 		}
 
 		if(security_check == 0 && current_local_id->security_level != 0xFF)
 		{
-			iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+			iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
 					__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_SAD);
 			return;
 		}
@@ -1131,7 +1282,7 @@ void iso14992_srvc_read_data_by_localid()
 		tb_pos+=data_buffer_sz;
 
 	}
-	iso14992_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,tb_pos );
+	iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,tb_pos );
 }
 
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
@@ -1139,11 +1290,11 @@ void iso14992_srvc_read_data_by_localid()
 static uint8_t data_buffer_sz;
 static uint8_t data_buffer[129];
 
-void iso14992_srvc_write_data_by_localid()
+void iso14229_srvc_write_data_by_localid()
 {
 	if( iso14229_1_received_indn.msg_sz < 3 )
 	{
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
 				__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IMLOIF);
 		return;
 	}
@@ -1175,7 +1326,7 @@ void iso14992_srvc_write_data_by_localid()
 
 	if(current_local_id == NULL)
 	{
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
 				__uds_get_function(iso14229_1_received_indn.msg), UDS_NRC_ROOR);
 		return;
 	}
@@ -1195,7 +1346,7 @@ void iso14992_srvc_write_data_by_localid()
 
 	if(session_valid == 0)
 	{
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
 				__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_ROOR);
 		return;
 	}
@@ -1204,13 +1355,13 @@ void iso14992_srvc_write_data_by_localid()
 
 	for(register uint32_t j = 0;j<sa_list_sz;j++)
 	{
-		if(uds_security_accesses[j].access_lvl == current_local_id->security_level && uds_security_accesses[j].sts == SA_ACTIVE)
+		if(uds_security_accesses[j].access_lvl >= current_local_id->security_level && uds_security_accesses[j].sts == SA_ACTIVE)
 			security_check = 1;
 	}
 
 	if(security_check == 0 && current_local_id->security_level != 0xFF)
 	{
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
 				__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_SAD);
 		return;
 	}
@@ -1236,7 +1387,7 @@ void iso14992_srvc_write_data_by_localid()
 																	|  ((uint32_t)(*(uint8_t*)(iso14229_1_received_indn.msg + 6))) ;
 			break;
 		default:
-			iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+			iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
 					__uds_get_function(iso14229_1_received_indn.msg), UDS_NRC_VMSCNC04);
 			return;
 		}
@@ -1245,20 +1396,28 @@ void iso14992_srvc_write_data_by_localid()
 	{
 		if(current_local_id->data.as_func.func == NULL)
 		{
-			iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+			iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
 					__uds_get_function(iso14229_1_received_indn.msg), UDS_NRC_VMSCNC04);
 			return;
 		}
+
+		if(current_local_id->data.as_func.size!=0 && current_local_id->data.as_func.size != iso14229_1_received_indn.msg_sz - 3)
+		{
+			iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
+					__uds_get_function(iso14229_1_received_indn.msg), UDS_NRC_IMLOIF);
+			return;
+		}
+
 		if(current_local_id->data.as_func.func(iso14229_1_received_indn.msg + 3,iso14229_1_received_indn.msg_sz - 3,current_local_id->data.as_func.func_arg) != 0)
 		{
-			iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+			iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
 					__uds_get_function(iso14229_1_received_indn.msg), UDS_NRC_VMSCNC05);
 			return;
 		}
 	}
 	else
 	{
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
 				__uds_get_function(iso14229_1_received_indn.msg), UDS_NRC_VMSCNC04);
 		return;
 	}
@@ -1266,7 +1425,7 @@ void iso14992_srvc_write_data_by_localid()
 	iso14229_1_temporary_buffer[1] = (data_id & 0xFF00) >> 8;
 	iso14229_1_temporary_buffer[2] = (data_id & 0x00FF) >> 0;
 
-	iso14992_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,3 );
+	iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,3 );
 }
 
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
@@ -1275,7 +1434,7 @@ void iso14229_1_srvc_read_memory_by_address()
 {
 	if( iso14229_1_received_indn.msg_sz < 4)
 	{
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
 				__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IMLOIF);
 		return;
 	}
@@ -1293,7 +1452,7 @@ void iso14229_1_srvc_read_memory_by_address()
 
 	if(mem_sz > 0xFF)
 	{
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
 				__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_ROOR);
 		return;
 	}
@@ -1302,7 +1461,7 @@ void iso14229_1_srvc_read_memory_by_address()
 	for(uint32_t i=0;i<mem_sz;i++)
 		iso14229_1_temporary_buffer[1+i] = *((uint8_t*)((intptr_t)(mem_address+i)));
 
-	iso14992_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,1+mem_sz);
+	iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,1+mem_sz);
 }
 
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
@@ -1312,7 +1471,7 @@ void iso14229_1_uds_srvc_request_download()
 	if(iso14229_1_received_indn.msg_sz < 4)
 	{
 		uds_tranfer_data.sts = TD_LOCKED;
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
 				__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IMLOIF);
 		return;
 	}
@@ -1320,7 +1479,7 @@ void iso14229_1_uds_srvc_request_download()
 	if(__uds_get_subfunction(iso14229_1_received_indn.msg) != 0x00)
 	{
 		uds_tranfer_data.sts = TD_LOCKED;
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
 				__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_ROOR);
 		return;
 	}
@@ -1331,14 +1490,14 @@ void iso14229_1_uds_srvc_request_download()
 	for(register uint32_t j = 0;j<sa_list_sz;j++)
 	{
 		if(uds_security_accesses[j].sts == SA_ACTIVE &&
-				uds_security_accesses[j].access_lvl == uds_download_request.security_level)
+				uds_security_accesses[j].access_lvl >= uds_download_request.security_level)
 			security_check = 1;
 	}
 
 	if(security_check == 0 && uds_download_request.security_level != 0xFF)
 	{
 		uds_tranfer_data.sts = TD_LOCKED;
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
 				__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_SAD);
 		return;
 	}
@@ -1350,7 +1509,7 @@ void iso14229_1_uds_srvc_request_download()
 	if(bcnt_mem_sz > 4 || bcnt_mem_addr > 4 || bcnt_mem_sz < 1 ||  bcnt_mem_addr < 3)
 	{
 		uds_tranfer_data.sts = TD_LOCKED;
-		iso14992_send_NRC(&iso14229_1_received_indn.n_ai,
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
 				__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_ROOR);
 		return;
 	}
@@ -1379,7 +1538,7 @@ void iso14229_1_uds_srvc_request_download()
 	t_buffer[1] = 0x20;
 	t_buffer[2] = 0x02;
 	t_buffer[3] = 0x00;
-	iso14992_send(&iso14229_1_received_indn.n_ai,t_buffer,4);
+	iso14229_send(&iso14229_1_received_indn.n_ai,t_buffer,4);
 	return;
 }
 
