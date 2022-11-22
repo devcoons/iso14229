@@ -256,6 +256,7 @@ typedef enum
 
 typedef enum
 {
+
 	IOC_INACTIVE 	= 0x10,
 	IOC_ACTIVE 		= 0x20
 }iocontrol_status;
@@ -409,6 +410,7 @@ typedef struct __attribute__ ((aligned (4)))
 
 typedef struct __attribute__ ((aligned (4)))
 {
+
 	uint16_t id;
 	uint32_t session; // pag 39 non-defaultSession
 	uint32_t security_level;
@@ -521,6 +523,7 @@ extern __attribute__ ((aligned (4)))
 					uds_session_t uds_sessions[ISO14229_1_NUMOF_DIAGSESSIONS] ;
 extern __attribute__ ((aligned (4)))
 				    uds_io_control_by_id_t* uds_io_control_by_id[ISO14229_1_NUMOF_IOCONTROL];
+
 
 
 /******************************************************************************
@@ -658,7 +661,6 @@ uint8_t iso14229_process();
  * Check if a process is ongoing
  */
 uint8_t iso14229_inactive();
-
 
 /******************************************************************************
 * EOF - NO CODE AFTER THIS LINE

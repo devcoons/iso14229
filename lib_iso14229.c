@@ -434,7 +434,6 @@ void iso14229_1_srvc_request_transfer_exit()
 
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
 
-
 intptr_t iso14229_srvc_ioc_get(uds_io_control_by_id_t* h)
 {
 	if(h->ptr_iocontrol != h->ptr_inactive && h->ptr_iocontrol != (uint32_t)&h->out_val)
@@ -593,10 +592,6 @@ void iso14229_1_srvc_input_output_control_by_identifier()
 
 	iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,5);
 
-	//
-	//
-	//
-
 }
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
 
@@ -680,6 +675,7 @@ void iso14229_1_srvc_routine_control()
 
 	if(rslt == 0)
 	{
+
 		iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
 		iso14229_1_temporary_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
 		iso14229_1_temporary_buffer[2] = iso14229_1_received_indn.msg[2];
@@ -687,6 +683,7 @@ void iso14229_1_srvc_routine_control()
 		iso14229_1_temporary_buffer[4] = rslt;
 		if(current_routine->rst != NULL && current_routine->rst_sz !=0)
 			memmove(&iso14229_1_temporary_buffer[5],current_routine->rst,current_routine->rst_sz);
+
 		iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,5+current_routine->rst_sz);
 	}
 	else

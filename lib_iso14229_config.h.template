@@ -1,6 +1,6 @@
 /*!
 	@file   iso14229_1_config.h
-    @brief  <brief description here>
+  @brief  <brief description here>
 	@t.odo	-
 */
 /******************************************************************************
@@ -16,6 +16,7 @@
 #define ISO14229_1_NUMOF_SECURITYACCESSES  		5
 #define ISO14229_1_NUMOF_DIAGSESSIONS	  		5
 #define ISO14229_1_NUMOF_IOCONTROL				0
+
 
 /******************************************************************************
 * EOF - NO CODE AFTER THIS LINE
