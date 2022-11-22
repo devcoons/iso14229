@@ -434,6 +434,7 @@ void iso14229_1_srvc_request_transfer_exit()
 
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
 
+
 intptr_t iso14229_srvc_ioc_get(uds_io_control_by_id_t* h)
 {
 	if(h->ptr_iocontrol != h->ptr_inactive && h->ptr_iocontrol != (uint32_t)&h->out_val)
@@ -443,6 +444,7 @@ intptr_t iso14229_srvc_ioc_get(uds_io_control_by_id_t* h)
 	}
 	return h->ptr_iocontrol;
 }
+
 
 void iso14229_1_srvc_input_output_control_process()
 {
@@ -458,16 +460,19 @@ void iso14229_1_srvc_input_output_control_process()
 		return;
 
 	uint32_t list_sz = sizeof(uds_io_control_by_id)/sizeof(uds_io_control_by_id_t*);
+
 	iocontrol_status sts =  RTN_INACTIVE;
 
 	for(register uint32_t i = 0;i<list_sz;i++)
 	{
+
 		if(uds_io_control_by_id[i]->sts == IOC_ACTIVE && uds_io_control_by_id[i]->session != uds_sessions[session_valid].id)
 		{
 			uds_io_control_by_id[i]->ptr_iocontrol = uds_io_control_by_id[i]->ptr_inactive;
 			///RESET CONTROL TO MATLAB
 
 			uds_io_control_by_id[i]->sts = IOC_INACTIVE;
+
 		}
 	}
 }
@@ -483,19 +488,23 @@ void iso14229_1_srvc_input_output_control_by_identifier()
 		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IMLOIF);
 		return;
 	}
+
 	uds_io_control_by_id_t* current_iocontrol = NULL;
 	//DID supports service 0x2F in active session AND InputOutput is support
 
 	uint32_t list_sz = sizeof(uds_io_control_by_id)/sizeof(uds_io_control_by_id_t*);
+
 	uint16_t data_id = 	iso14229_1_received_indn.msg[1]<<8 | iso14229_1_received_indn.msg[2];
 	uint8_t session_valid = 0;
 	uint8_t security_check = 0;
 
 	for(register uint32_t i = 0;i<list_sz;i++)
 	{
+
 		if(uds_io_control_by_id[i]->id == data_id && uds_io_control_by_id[i]->id != 0)
 		{
 			current_iocontrol = uds_io_control_by_id[i];
+
 			break;
 		}
 	}
@@ -523,7 +532,9 @@ void iso14229_1_srvc_input_output_control_by_identifier()
 	}
 	//Total length check
 
-	//controlState is supported  (if applicable) AND control mask is supported (if applicable)
+
+	//controlState is supported (if applicable) AND control mask is supported (if applicable)
+
 
 	//authentication check ok? [Not used]
 
@@ -541,6 +552,7 @@ void iso14229_1_srvc_input_output_control_by_identifier()
 		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_SAD);
 		return;
 	}
+
 	//se arrivo qui attivo lo status ioc_active
 
 	uint8_t ioc_param = iso14229_1_received_indn.msg[3];

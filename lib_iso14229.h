@@ -522,6 +522,7 @@ extern __attribute__ ((aligned (4)))
 extern __attribute__ ((aligned (4)))
 				    uds_io_control_by_id_t* uds_io_control_by_id[ISO14229_1_NUMOF_IOCONTROL];
 
+
 /******************************************************************************
 * Declaration | SHIM Functions (implementation @ lib_iso14229_shim.c)
 ******************************************************************************/
@@ -617,6 +618,7 @@ void iso14229_1_srvc_diagnostic_session_refresh_timeout();
 void iso14229_1_srvc_input_output_control_by_identifier();
 void iso14229_1_srvc_input_output_control_process();
 intptr_t iso14229_srvc_ioc_get(uds_io_control_by_id_t*);
+
 /*
  * Check if a give service is actually supported
  */

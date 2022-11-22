@@ -15,6 +15,7 @@
 #define ISO14229_1_NUMOF_READDATABYID 	  		20
 #define ISO14229_1_NUMOF_SECURITYACCESSES  		5
 #define ISO14229_1_NUMOF_DIAGSESSIONS	  		5
+#define ISO14229_1_NUMOF_IOCONTROL				0
 
 /******************************************************************************
 * EOF - NO CODE AFTER THIS LINE
