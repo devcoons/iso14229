@@ -256,6 +256,23 @@ typedef enum
 
 typedef enum
 {
+
+	IOC_INACTIVE 	= 0x10,
+	IOC_ACTIVE 		= 0x20
+}iocontrol_status;
+
+/* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
+
+typedef enum
+{
+	IOC_INPUT 		= 0x10,
+	IOC_OUTPUT 		= 0x20
+}iocontrol_type;
+
+/* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
+
+typedef enum
+{
 	RDBID_AS_MEMORY_ADDRESS = 0x02,
 	RDBID_AS_RETVAL_OF_FUNC = 0x08
 }uds_read_data_by_id_type;
@@ -393,6 +410,22 @@ typedef struct __attribute__ ((aligned (4)))
 
 typedef struct __attribute__ ((aligned (4)))
 {
+
+	uint16_t id;
+	uint32_t session; // pag 39 non-defaultSession
+	uint32_t security_level;
+	iocontrol_type type;
+	iocontrol_status sts;
+	variable_type var_type;
+	intptr_t ptr_iocontrol;
+	intptr_t ptr_inactive;
+	uint32_t out_val;
+}uds_io_control_by_id_t;
+
+/* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
+
+typedef struct __attribute__ ((aligned (4)))
+{
 	uint32_t session;
 	uint32_t security_level;
 	routine_status sts;
@@ -488,6 +521,10 @@ extern __attribute__ ((aligned (4)))
 					uds_ecu_reset_t uds_ecu_reset;
 extern __attribute__ ((aligned (4)))
 					uds_session_t uds_sessions[ISO14229_1_NUMOF_DIAGSESSIONS] ;
+extern __attribute__ ((aligned (4)))
+				    uds_io_control_by_id_t* uds_io_control_by_id[ISO14229_1_NUMOF_IOCONTROL];
+
+
 
 /******************************************************************************
 * Declaration | SHIM Functions (implementation @ lib_iso14229_shim.c)
@@ -577,6 +614,13 @@ void iso14229_1_uds_srvc_ecu_reset();
  */
 void iso14229_1_srvc_diagnostic_session_control();
 void iso14229_1_srvc_diagnostic_session_refresh_timeout();
+
+/*
+ * Functions related to service: IO Control
+ */
+void iso14229_1_srvc_input_output_control_by_identifier();
+void iso14229_1_srvc_input_output_control_process();
+intptr_t iso14229_srvc_ioc_get(uds_io_control_by_id_t*);
 
 /*
  * Check if a give service is actually supported

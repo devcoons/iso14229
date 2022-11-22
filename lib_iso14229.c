@@ -59,7 +59,7 @@ static iso14299_1_sid_t sid_list[] =
 	{.sid = UDS_SRVC_WriteMemoryByAddress, 			.is_supported = iso14229_1_NO },
 	{.sid = UDS_SRVC_ClearDiagnosticInformation, 		.is_supported = iso14229_1_NO },
 	{.sid = UDS_SRVC_ReadDTCInformation, 			.is_supported = iso14229_1_NO },
-	{.sid = UDS_SRVC_InputOutputControlByIdentifier, 	.is_supported = iso14229_1_NO },
+	{.sid = UDS_SRVC_InputOutputControlByIdentifier, 	.is_supported = iso14229_1_YES },
 	{.sid = UDS_SRVC_RoutineControl, 			.is_supported = iso14229_1_YES },
 	{.sid = UDS_SRVC_RequestDownload, 			.is_supported = iso14229_1_YES },
 	{.sid = UDS_SRVC_RequestUpload, 			.is_supported = iso14229_1_NO },
@@ -204,6 +204,7 @@ uint8_t iso14229_process()
 		uds_server.last_updated = iso14229_getms();
 	}
 
+	iso14229_1_srvc_input_output_control_process();
 
 	if(uds_server.p_msg != 1)
 		return 0;
@@ -272,6 +273,7 @@ uint8_t iso14229_process()
 	case UDS_SRVC_ReadDTCInformation:
 		break;
 	case UDS_SRVC_InputOutputControlByIdentifier:
+		iso14229_1_srvc_input_output_control_by_identifier();
 		break;
 	case UDS_SRVC_RoutineControl:
 		iso14229_1_srvc_routine_control();
@@ -430,6 +432,167 @@ void iso14229_1_srvc_request_transfer_exit()
 	return;
 }
 
+/* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
+
+intptr_t iso14229_srvc_ioc_get(uds_io_control_by_id_t* h)
+{
+	if(h->ptr_iocontrol != h->ptr_inactive && h->ptr_iocontrol != (uint32_t)&h->out_val)
+	{
+		h->ptr_inactive;
+		return h->ptr_inactive;
+	}
+	return h->ptr_iocontrol;
+}
+
+
+void iso14229_1_srvc_input_output_control_process()
+{
+	uint32_t sessions_list_sz = sizeof(uds_sessions) / sizeof(uds_session_t);
+	uint32_t session_valid = -1;
+	for(register uint32_t i = 0; i < sessions_list_sz; i++)
+	{
+		if(uds_sessions[i].sts == A_ACTIVE)
+			session_valid = i;
+	}
+
+	if(session_valid == -1)
+		return;
+
+	uint32_t list_sz = sizeof(uds_io_control_by_id)/sizeof(uds_io_control_by_id_t*);
+
+	iocontrol_status sts =  RTN_INACTIVE;
+
+	for(register uint32_t i = 0;i<list_sz;i++)
+	{
+
+		if(uds_io_control_by_id[i]->sts == IOC_ACTIVE && uds_io_control_by_id[i]->session != uds_sessions[session_valid].id)
+		{
+			uds_io_control_by_id[i]->ptr_iocontrol = uds_io_control_by_id[i]->ptr_inactive;
+			///RESET CONTROL TO MATLAB
+
+			uds_io_control_by_id[i]->sts = IOC_INACTIVE;
+
+		}
+	}
+}
+
+
+/* --- InputOutput control functional unit (ref:iso14229-1(2020) Cap 13 p.297) ------------ */
+void iso14229_1_srvc_input_output_control_by_identifier()
+{
+
+	//Minimum lenght check
+	if(iso14229_1_received_indn.msg_sz < 4)  //pag 301
+	{
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IMLOIF);
+		return;
+	}
+
+	uds_io_control_by_id_t* current_iocontrol = NULL;
+	//DID supports service 0x2F in active session AND InputOutput is support
+
+	uint32_t list_sz = sizeof(uds_io_control_by_id)/sizeof(uds_io_control_by_id_t*);
+
+	uint16_t data_id = 	iso14229_1_received_indn.msg[1]<<8 | iso14229_1_received_indn.msg[2];
+	uint8_t session_valid = 0;
+	uint8_t security_check = 0;
+
+	for(register uint32_t i = 0;i<list_sz;i++)
+	{
+
+		if(uds_io_control_by_id[i]->id == data_id && uds_io_control_by_id[i]->id != 0)
+		{
+			current_iocontrol = uds_io_control_by_id[i];
+
+			break;
+		}
+	}
+
+	if(current_iocontrol == NULL)  // check if IO is present
+	{
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
+				__uds_get_function(iso14229_1_received_indn.msg), UDS_NRC_ROOR);
+		return;
+	}
+
+	list_sz = sizeof(uds_sessions) / sizeof(uds_session_t);
+
+	for(register uint32_t i = 0; i < list_sz; i++)
+	{
+		if(uds_sessions[i].id == current_iocontrol->session && uds_sessions[i].sts == A_ACTIVE)
+			session_valid = 1;
+	}
+
+	if(session_valid == 0)
+	{
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
+				__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_ROOR);
+		return;
+	}
+	//Total length check
+
+
+	//controlState is supported (if applicable) AND control mask is supported (if applicable)
+
+
+	//authentication check ok? [Not used]
+
+	//Security check ok for requested DID?
+	uint32_t sa_list_sz = sizeof(uds_security_accesses)/sizeof(uds_security_access_t);
+
+	for(register uint32_t j = 0;j<sa_list_sz;j++)
+	{
+		if(uds_security_accesses[j].access_lvl == current_iocontrol->security_level && uds_security_accesses[j].sts == SA_ACTIVE)
+			security_check = 1;
+	}
+
+	if(security_check == 0 && current_iocontrol->security_level != 0xFF)
+	{
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_SAD);
+		return;
+	}
+
+	//se arrivo qui attivo lo status ioc_active
+
+	uint8_t ioc_param = iso14229_1_received_indn.msg[3];
+	if (ioc_param >= 0x04)// ISOSAERESRVD
+	{
+			iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_ROOR);
+			return;
+	}
+	current_iocontrol->sts = IOC_ACTIVE;
+	//
+	if(current_iocontrol->var_type == VAR_TYPE_u8 || current_iocontrol->var_type == VAR_TYPE_i8)
+		current_iocontrol->out_val = iso14229_1_received_indn.msg[4];
+	else if(current_iocontrol->var_type == VAR_TYPE_u16 || current_iocontrol->var_type == VAR_TYPE_i16)
+		current_iocontrol->out_val = iso14229_1_received_indn.msg[4]<<8 | iso14229_1_received_indn.msg[5];
+	else if(current_iocontrol->var_type == VAR_TYPE_u32 || current_iocontrol->var_type == VAR_TYPE_i32)
+		current_iocontrol->out_val = iso14229_1_received_indn.msg[4]<<24 | iso14229_1_received_indn.msg[5]<<16 | iso14229_1_received_indn.msg[6]<<8 | iso14229_1_received_indn.msg[7];
+
+	switch(ioc_param)
+	{
+		case 00://RCTECU - returnControlToECU
+			current_iocontrol->ptr_iocontrol = current_iocontrol->ptr_inactive;
+			current_iocontrol->sts = IOC_INACTIVE;
+			break;
+		case 01: //RTD - resetToDefault
+			break;
+		case 02://FCS - freezeCurrentState
+			break;
+		case 03://STA - shortTermAdjustment
+			current_iocontrol->ptr_iocontrol = (intptr_t)&current_iocontrol->out_val;
+			current_iocontrol->sts = IOC_ACTIVE;
+			break;
+	}
+	iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg); //SID +0x40
+	iso14229_1_temporary_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);				//0x2F
+	iso14229_1_temporary_buffer[2] = iso14229_1_received_indn.msg[2];									//id
+	iso14229_1_temporary_buffer[3] = iso14229_1_received_indn.msg[3];									//id
+	iso14229_1_temporary_buffer[4] = iso14229_1_received_indn.msg[4];									//val
+
+	iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,5);
+
+}
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
 
 void iso14229_1_srvc_routine_control()
@@ -1085,7 +1248,6 @@ void iso14229_srvc_read_data_by_localid()
 					__uds_get_function(iso14229_1_received_indn.msg), UDS_NRC_VMSCNC04);
 			return;
 		}
-
 
 		list_sz = sizeof(uds_sessions) / sizeof(uds_session_t);
 

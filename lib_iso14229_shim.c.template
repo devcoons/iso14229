@@ -94,7 +94,6 @@ uint8_t send_frame(cbus_id_type id_type, uint32_t id, cbus_fr_format fr_fmt, uin
 	}
 	return 0;
 }
-
 /******************************************************************************
 * EOF - NO CODE AFTER THIS LINE
 ******************************************************************************/
