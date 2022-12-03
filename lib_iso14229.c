@@ -438,7 +438,6 @@ intptr_t iso14229_srvc_ioc_get(uds_io_control_by_id_t* h)
 {
 	if(h->ptr_iocontrol != h->ptr_inactive && h->ptr_iocontrol != (uint32_t)&h->out_val)
 	{
-		h->ptr_inactive;
 		return h->ptr_inactive;
 	}
 	return h->ptr_iocontrol;
