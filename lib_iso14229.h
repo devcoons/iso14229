@@ -37,9 +37,29 @@ SOFTWARE.
 
 #include <stdlib.h>
 #include <stdint.h>
-#include "lib_iso15765.h"
-#include "lib_iso14229_config.h"
-#include "lib_crypto.h"
+
+#if __has_include("lib_iso15765.h")
+		#include "lib_iso15765.h"
+		#define LIB_ISO14229_1_ENABLED
+	#else 
+		#undef LIB_ISO14229_1_ENABLED
+#endif
+
+#if __has_include("lib_iso14229_config.h")
+		#include "lib_iso14229_config.h"
+		#define LIB_ISO14229_1_ENABLED
+	#else 
+		#undef LIB_ISO14229_1_ENABLED
+#endif
+
+#if __has_include("lib_crypto.h")
+		#include "lib_crypto.h"
+		#define LIB_ISO14229_1_ENABLED
+	#else 
+		#undef LIB_ISO14229_1_ENABLED
+#endif
+
+#ifdef LIB_ISO14229_1_ENABLED
 
 #define UDS_TDC_SZ 512*2*2
 
@@ -725,4 +745,5 @@ uint8_t iso14229_inactive();
 /******************************************************************************
 * EOF - NO CODE AFTER THIS LINE
 ******************************************************************************/
+#endif
 #endif
