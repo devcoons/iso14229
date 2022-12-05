@@ -4,8 +4,10 @@
 @t.odo	-
 ---------------------------------------------------------------------------
 MIT License
+
 Copyright (c) 2020 Io. D (Devcoons.com)
 Developed for: Energica Motor Company SpA
+
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -48,29 +50,29 @@ SOFTWARE.
 /* -- UDS Supported Services [ ISO14229-1-2020 p.39 ]			  	      -- */
 
 #define UDS_SRVC_DiagnosticSessionControl			0x10
-#define UDS_SRVC_ECUReset							0x11
-#define UDS_SRVC_SecurityAccess						0x27
+#define UDS_SRVC_ECUReset					0x11
+#define UDS_SRVC_SecurityAccess					0x27
 #define UDS_SRVC_CommunicationControl				0x28
-#define UDS_SRVC_TesterPresent						0x3E
-#define UDS_SRVC_Authentication						0x29
+#define UDS_SRVC_TesterPresent					0x3E
+#define UDS_SRVC_Authentication					0x29
 #define UDS_SRVC_SecuredDataTransmission			0x84
-#define UDS_SRVC_ControlDTCSetting					0x85
-#define UDS_SRVC_ResponseOnEvent					0x86
-#define UDS_SRVC_LinkControl						0x87
+#define UDS_SRVC_ControlDTCSetting				0x85
+#define UDS_SRVC_ResponseOnEvent				0x86
+#define UDS_SRVC_LinkControl					0x87
 #define UDS_SRVC_ReadDataByIdentifier				0x22
 #define UDS_SRVC_ReadMemoryByAddress				0x23
-#define UDS_SRVC_ReadScalingDataByIdentifier		0x24
-#define UDS_SRVC_ReadDataByPeriodicIdentifier		0x2A
-#define UDS_SRVC_DynamicallyDefineDataIdentifier	0x2C
+#define UDS_SRVC_ReadScalingDataByIdentifier			0x24
+#define UDS_SRVC_ReadDataByPeriodicIdentifier			0x2A
+#define UDS_SRVC_DynamicallyDefineDataIdentifier		0x2C
 #define UDS_SRVC_WriteDataByIdentifier				0x2E
 #define UDS_SRVC_WriteMemoryByAddress				0x3D
 #define UDS_SRVC_ClearDiagnosticInformation			0x14
-#define UDS_SRVC_ReadDTCInformation					0x19
-#define UDS_SRVC_InputOutputControlByIdentifier		0x2F
-#define UDS_SRVC_RoutineControl						0x31
-#define UDS_SRVC_RequestDownload					0x34
-#define UDS_SRVC_RequestUpload						0x35
-#define UDS_SRVC_TransferData						0x36
+#define UDS_SRVC_ReadDTCInformation				0x19
+#define UDS_SRVC_InputOutputControlByIdentifier			0x2F
+#define UDS_SRVC_RoutineControl					0x31
+#define UDS_SRVC_RequestDownload				0x34
+#define UDS_SRVC_RequestUpload					0x35
+#define UDS_SRVC_TransferData					0x36
 #define UDS_SRVC_RequestTransferExit				0x37
 #define UDS_SRVC_RequestFileTransfer				0x38
 
@@ -85,7 +87,7 @@ SOFTWARE.
 
 /* -- Negative Response Code (NRC) definition [ ISO14229-1-2020 p.390 ]	  -- */
 
-#define UDS_NRC_GR 		    0x10	/* generalReject             		  	 */
+#define UDS_NRC_GR 		0x10	/* generalReject             		  	 */
 #define UDS_NRC_SNS 		0x11	/* serviceNotSupported             		 */
 #define UDS_NRC_SFNS 		0x12	/* SubFunctionNotSupported             	 */
 #define UDS_NRC_IMLOIF 		0x13	/* incorrectMessageLengthOrInvalidFormat */
@@ -97,8 +99,8 @@ SOFTWARE.
 #define UDS_NRC_FPEORA 		0x26	/* FailurePreventsExecutionOfReq.Action	 */
 #define UDS_NRC_ROOR 		0x31	/* requestOutOfRange             		 */
 #define UDS_NRC_SAD 		0x33	/* securityAccessDenied             	 */
-#define UDS_NRC_AR 			0x34	/* authenticationRequired             	 */
-#define UDS_NRC_IK 			0x35	/* invalidKey             				 */
+#define UDS_NRC_AR 		0x34	/* authenticationRequired             	 */
+#define UDS_NRC_IK 		0x35	/* invalidKey             				 */
 #define UDS_NRC_ENOA 		0x36	/* exceedNumberOfAttempts             	 */
 #define UDS_NRC_RTDNE 		0x37	/* requiredTimeDelayNotExpired           */
 #define UDS_NRC_SDTR 		0x38	/* secureDataTransmissionRequired		 */
@@ -180,56 +182,127 @@ SOFTWARE.
 #define UDS_TMD_SASR 		0x01	/* sendAtSlowRate    				     */
 #define UDS_TMD_SAMR 		0x02	/* sendAtMediumRate    				     */
 #define UDS_TMD_SAFR 		0x03	/* sendAtFastRate    				     */
-#define UDS_TMD_SS 			0x04	/* stopSending    				         */
+#define UDS_TMD_SS 		0x04	/* stopSending    				         */
 
 /* -- DTC Retrieve SubFunction [ ISO14229-1-2020 p.227 ]		          -- */
 
-#define UDS_RDTC_RNODTCBSM 			0x01   /* rep.Num.OfDTCByStatusMask		 */
-#define UDS_RDTC_RDTCBSM 			0x02   /* rep.DTCByStatusMask			 */
-#define UDS_RDTC_RDTCSSI  			0x03   /* rep.DTCSn/t Identification	 */
+#define UDS_RDTC_RNODTCBSM 		0x01   /* rep.Num.OfDTCByStatusMask		 */
+#define UDS_RDTC_RDTCBSM 		0x02   /* rep.DTCByStatusMask			 */
+#define UDS_RDTC_RDTCSSI  		0x03   /* rep.DTCSn/t Identification	 */
 #define UDS_RDTC_RDTCSSBDTC  		0x04   /* rep.DTCSn/t Rec. ByDTCNum	     */
 #define UDS_RDTC_RDTCSDBRN  		0x05   /* rep.DTCStored DtByRec.Num      */
 #define UDS_RDTC_RDTCEDRBDN  		0x06   /* rep.DTCExt DtRec.ByDTCNumber	 */
 #define UDS_RDTC_RNODTCBSMR  		0x07   /* rep.Num.OfDTCBySvrt.MaskRec. 	 */
-#define UDS_RDTC_RDTCBSMR  			0x08   /* rep.DTCBySeverityMaskRecord	 */
-#define UDS_RDTC_RSIODTC  			0x09   /* rep.SeverityInformationOfDTC	 */
-#define UDS_RDTC_RSUPDTC  			0x0A   /* rep.SupportedDTC			     */
-#define UDS_RDTC_RFTFDTC  			0x0B   /* rep.FirstTestFailedDTC		 */
-#define UDS_RDTC_RMRTFDTC  			0x0D   /* rep.MostRecentTestFailedDTC	 */
-#define UDS_RDTC_RFCDTC 			0x0C   /* rep.FirstConfirmedDTC			 */
-#define UDS_RDTC_RMRCDTC  			0x0E   /* rep.MostRecentConfirmedDTC	 */
-#define UDS_RDTC_RDTCFDC  			0x14   /* rep.DTCFaultDetection-Counter	 */
-#define UDS_RDTC_RDTCWPS  			0x15   /* rep.DTCWithPermanentStatus	 */
-#define UDS_RDTC_RDTCEDBR  			0x16   /* rep.DTCExtDataRec.ByRec.Num.	 */
+#define UDS_RDTC_RDTCBSMR  		0x08   /* rep.DTCBySeverityMaskRecord	 */
+#define UDS_RDTC_RSIODTC  		0x09   /* rep.SeverityInformationOfDTC	 */
+#define UDS_RDTC_RSUPDTC  		0x0A   /* rep.SupportedDTC			     */
+#define UDS_RDTC_RFTFDTC  		0x0B   /* rep.FirstTestFailedDTC		 */
+#define UDS_RDTC_RMRTFDTC  		0x0D   /* rep.MostRecentTestFailedDTC	 */
+#define UDS_RDTC_RFCDTC 		0x0C   /* rep.FirstConfirmedDTC			 */
+#define UDS_RDTC_RMRCDTC  		0x0E   /* rep.MostRecentConfirmedDTC	 */
+#define UDS_RDTC_RDTCFDC  		0x14   /* rep.DTCFaultDetection-Counter	 */
+#define UDS_RDTC_RDTCWPS  		0x15   /* rep.DTCWithPermanentStatus	 */
+#define UDS_RDTC_RDTCEDBR  		0x16   /* rep.DTCExtDataRec.ByRec.Num.	 */
 #define UDS_RDTC_RUDMDTCBSM  		0x17   /* rep.UDM.DTCByStatusMask	     */
 #define UDS_RDTC_RUDMDTCSSBDTC		0x18   /* rep.UDM.DTCSnap.Rec.ByDTCNum.  */
 #define UDS_RDTC_RUDMDTCEDRBDN		0x19   /* rep.UDM.DTCExtDt.Rec.ByDTCNum. */
-#define UDS_RDTC_RDTCEDI  			0x1A   /* rep.SupportedDTCExtDataRec.	 */
+#define UDS_RDTC_RDTCEDI  		0x1A   /* rep.SupportedDTCExtDataRec.	 */
 #define UDS_RDTC_RWWHOBDDTCBMR 		0x42   /* rep.WWHOBDDTCByMaskRecord		 */
 #define UDS_RDTC_RWWHOBDDTCWPS 		0x55   /* rep.WWHOBDDTCWithPerm.Status	 */
-#define UDS_RDTC_RDTCBRGI  			0x56   /* rep.DTCInfoByDTCRdness.Gr.Id.  */
+#define UDS_RDTC_RDTCBRGI  		0x56   /* rep.DTCInfoByDTCRdness.Gr.Id.  */
 
 /******************************************************************************
 * Enumerations, structures & Variables
 ******************************************************************************/
 
+#if !defined(ENUM_I_STATUS)
+#define ENUM_I_STATUS
+typedef enum
+{
+	I_OK 			= 0x00,
+	I_INVALID 		= 0x01,
+	I_EXISTS 		= 0x02,
+	I_NOTEXISTS 		= 0x03,
+	I_FAILED 		= 0x04,
+	I_EXPIRED 		= 0x05,
+	I_UNKNOWN 		= 0x06,
+	I_INPROGRESS 		= 0x07,
+	I_IDLE			= 0x08,
+	I_FULL			= 0x09,
+	I_EMPTY			= 0x0A,
+	I_YES			= 0x0B,
+	I_NO			= 0x0C,
+	I_SKIP			= 0x0D,
+	I_LOCKED 		= 0x0E,
+	I_INACTIVE 		= 0x0F,
+	I_ACTIVE 		= 0x10,
+	I_READY		 	= 0x11,
+	I_WAIT 			= 0x12,
+	I_OVERFLOW 		= 0x13,
+	I_CONTINUE 		= 0x14,
+	I_STOPPED 		= 0x15,
+	I_WARNING 		= 0x16,
+	I_SLEEP 		= 0x17,
+	I_DEEPSLEEP 		= 0x18,
+	I_STANDBY 		= 0x19,
+	I_GRANTED 		= 0x1A,
+	I_DENIED 		= 0x1B,
+	I_DEBUG_01 		= 0xE0,
+	I_DEBUG_02 		= 0xE1,
+	I_DEBUG_03 		= 0xE2,
+	I_DEBUG_04 		= 0xE3,
+	I_DEBUG_05 		= 0xE4,
+	I_DEBUG_06 		= 0xE5,
+	I_DEBUG_07 		= 0xE6,
+	I_DEBUG_08 		= 0xE7,
+	I_DEBUG_09 		= 0xE8,
+	I_DEBUG_10 		= 0xE9,
+	I_DEBUG_11 		= 0xEA,
+	I_DEBUG_12 		= 0xEB,
+	I_DEBUG_13 		= 0xEC,
+	I_DEBUG_14 		= 0xED,
+	I_DEBUG_15 		= 0xEE,
+	I_DEBUG_16 		= 0xEF,
+	I_MEMALIGNED		= 0xFC,
+	I_MEMUNALIGNED		= 0xFD,
+	I_NOTIMPLEMENTED 	= 0xFE,
+	I_ERROR 		= 0xFF
+}i_status;
+#endif
+
+#if !defined(VAR_TYPE)
+#define VAR_TYPE
+typedef enum
+{
+	VAR_TYPE_U8 	= 0x01,
+	VAR_TYPE_I8 	= 0x11,
+	VAR_TYPE_U16 	= 0x02,
+	VAR_TYPE_I16 	= 0x12,
+	VAR_TYPE_U32 	= 0x04,
+	VAR_TYPE_I32 	= 0x14,
+	VAR_TYPE_U64 	= 0x08,
+	VAR_TYPE_I64 	= 0x18,
+	VAR_TYPE_ARR 	= 0x00,
+}var_type;
+#endif
+
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
 
 typedef enum
 {
-	iso14229_1_OK = 0x00,
-	iso14229_1_YES = 0x40,
-	iso14229_1_NO = 0x80,
+	iso14229_1_OK 	= 0x00,
+	iso14229_1_YES 	= 0x40,
+	iso14229_1_NO 	= 0x80,
 }iso14229_1_status;
 
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
 
 typedef enum
 {
-	A_INACTIVE 	 = 0x00,
-	A_ACTIVE 	 = 0x01,
-	A_LOCKED 	 = 0x80,
-	A_NOT_EXISTS = 0xF0
+	A_INACTIVE 	= 0x00,
+	A_ACTIVE 	= 0x01,
+	A_LOCKED 	= 0x80,
+	A_NOT_EXISTS 	= 0xF0
 }session_status;
 
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
@@ -238,7 +311,7 @@ typedef enum
 {
 	SA_INACTIVE 	= 0x00,
 	SA_IN_PROGRESS	= 0x01,
-	SA_ACTIVE 		= 0x02,
+	SA_ACTIVE 	= 0x02,
 	SA_NOT_EXISTS   = 0xF0
 }security_access_status;
 
@@ -247,8 +320,8 @@ typedef enum
 typedef enum
 {
 	RTN_INACTIVE 	= 0x10,
-	RTN_ACTIVE 		= 0x20,
-	RTN_LOCKED 		= 0x40,
+	RTN_ACTIVE 	= 0x20,
+	RTN_LOCKED 	= 0x40,
 	RTN_NOT_EXISTS  = 0x00
 }routine_status;
 
@@ -258,15 +331,15 @@ typedef enum
 {
 
 	IOC_INACTIVE 	= 0x10,
-	IOC_ACTIVE 		= 0x20
+	IOC_ACTIVE 	= 0x20
 }iocontrol_status;
 
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
 
 typedef enum
 {
-	IOC_INPUT 		= 0x10,
-	IOC_OUTPUT 		= 0x20
+	IOC_INPUT 	= 0x10,
+	IOC_OUTPUT 	= 0x20
 }iocontrol_type;
 
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
@@ -290,7 +363,7 @@ typedef enum
 typedef enum
 {
 	RD_INACTIVE 	= 0x10,
-	RD_ACTIVE 		= 0x20,
+	RD_ACTIVE 	= 0x20,
 	RD_NOT_EXISTS   = 0x00
 }request_download_status;
 
@@ -299,8 +372,8 @@ typedef enum
 typedef enum
 {
 	TD_INACTIVE 	= 0x10,
-	TD_ACTIVE 		= 0x20,
-	TD_LOCKED 		= 0x40,
+	TD_ACTIVE 	= 0x20,
+	TD_LOCKED 	= 0x40,
 	TD_NOT_EXISTS   = 0x00
 }tranfer_data_status;
 
@@ -308,24 +381,11 @@ typedef enum
 
 typedef enum
 {
-	RTN_START 	 = 0x01,
-	RTN_STOP 	 = 0x02,
-	RTN_RESULT 	 = 0x03,
-	RTN_CONTINUE = 0x10
+	RTN_START 	= 0x01,
+	RTN_STOP 	= 0x02,
+	RTN_RESULT 	= 0x03,
+	RTN_CONTINUE 	= 0x10
 }routine_command;
-
-/* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
-
-typedef enum
-{
-	VAR_TYPE_u8 = 0x11,
-	VAR_TYPE_i8 = 0x12,
-	VAR_TYPE_u16 = 0x21,
-	VAR_TYPE_i16 = 0x22,
-	VAR_TYPE_u32 = 0x41,
-	VAR_TYPE_i32 = 0x42,
-	VAR_TYPE_arr = 0x19,
-}variable_type;
 
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
 
