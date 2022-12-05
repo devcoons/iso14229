@@ -98,47 +98,47 @@ SOFTWARE.
 
 /* -- UDS Supported Diagnostic Sessions [ ISO14229-1-2020 p.40 ] 		  -- */
 
-#define UDS_DIAG_DS 		0x01	/* defaultSession						 */
-#define UDS_DIAG_PRGS 		0x02	/* ProgrammingSession           		 */
-#define UDS_DIAG_EXTDS 		0x03	/* extendedDiagnosticSession    		 */
-#define UDS_DIAG_SSDS 		0x04	/* safetySystemDiagnosticSession		 */
-#define UDS_DIAG_VMS(x) 	0x40+x	/* vM.Specific x>=0 && x<=31			 */
-#define UDS_DIAG_SSS(x) 	0x60+x	/* sS.Specific x>=0 && x<=31			 */
+#define UDS_DIAG_DS 		0x01	/* defaultSession			 */
+#define UDS_DIAG_PRGS 		0x02	/* ProgrammingSession           	 */
+#define UDS_DIAG_EXTDS 		0x03	/* extendedDiagnosticSession    	 */
+#define UDS_DIAG_SSDS 		0x04	/* safetySystemDiagnosticSession	 */
+#define UDS_DIAG_VMS(x) 	0x40+x	/* vM.Specific x>=0 && x<=31		 */
+#define UDS_DIAG_SSS(x) 	0x60+x	/* sS.Specific x>=0 && x<=31		 */
 
 /* -- Negative Response Code (NRC) definition [ ISO14229-1-2020 p.390 ]	  -- */
 
-#define UDS_NRC_GR 		0x10	/* generalReject             		  	 */
-#define UDS_NRC_SNS 		0x11	/* serviceNotSupported             		 */
+#define UDS_NRC_GR 		0x10	/* generalReject             		 */
+#define UDS_NRC_SNS 		0x11	/* serviceNotSupported             	 */
 #define UDS_NRC_SFNS 		0x12	/* SubFunctionNotSupported             	 */
 #define UDS_NRC_IMLOIF 		0x13	/* incorrectMessageLengthOrInvalidFormat */
-#define UDS_NRC_RTL 		0x14	/* responseTooLong             			 */
-#define UDS_NRC_BRR 		0x21	/* busyRepeatRequest             		 */
+#define UDS_NRC_RTL 		0x14	/* responseTooLong             		 */
+#define UDS_NRC_BRR 		0x21	/* busyRepeatRequest             	 */
 #define UDS_NRC_CNC 		0x22	/* conditionsNotCorrect             	 */
 #define UDS_NRC_RSE 		0x24	/* requestSequenceError             	 */
-#define UDS_NRC_NRFSC 		0x25	/* noResponseFromSubnetComponent		 */
+#define UDS_NRC_NRFSC 		0x25	/* noResponseFromSubnetComponent	 */
 #define UDS_NRC_FPEORA 		0x26	/* FailurePreventsExecutionOfReq.Action	 */
-#define UDS_NRC_ROOR 		0x31	/* requestOutOfRange             		 */
+#define UDS_NRC_ROOR 		0x31	/* requestOutOfRange             	 */
 #define UDS_NRC_SAD 		0x33	/* securityAccessDenied             	 */
 #define UDS_NRC_AR 		0x34	/* authenticationRequired             	 */
-#define UDS_NRC_IK 		0x35	/* invalidKey             				 */
+#define UDS_NRC_IK 		0x35	/* invalidKey             		 */
 #define UDS_NRC_ENOA 		0x36	/* exceedNumberOfAttempts             	 */
 #define UDS_NRC_RTDNE 		0x37	/* requiredTimeDelayNotExpired           */
-#define UDS_NRC_SDTR 		0x38	/* secureDataTransmissionRequired		 */
-#define UDS_NRC_SDTNA 		0x39	/* secureDataTransmissionNotAllowed		 */
-#define UDS_NRC_SDTF 		0x3A	/* secureDataVerificationFailed			 */
+#define UDS_NRC_SDTR 		0x38	/* secureDataTransmissionRequired	 */
+#define UDS_NRC_SDTNA 		0x39	/* secureDataTransmissionNotAllowed	 */
+#define UDS_NRC_SDTF 		0x3A	/* secureDataVerificationFailed		 */
 #define UDS_NRC_CVFITP 		0x50	/* Cert. vrf. fld. inv. Time Period      */
-#define UDS_NRC_CVFISI 		0x51	/* Cert. vrf. fld. inv. Signature	     */
+#define UDS_NRC_CVFISI 		0x51	/* Cert. vrf. fld. inv. Signature	 */
 #define UDS_NRC_CVFICOT 	0x52	/* Cert. vrf. fld. inv. Chain of Trust	 */
-#define UDS_NRC_CVFIT 		0x53	/* Cert. verif. failed. Inv. Type		 */
-#define UDS_NRC_CVFIF 		0x54	/* Cert. verif. failed. Inv. Format		 */
+#define UDS_NRC_CVFIT 		0x53	/* Cert. verif. failed. Inv. Type	 */
+#define UDS_NRC_CVFIF 		0x54	/* Cert. verif. failed. Inv. Format	 */
 #define UDS_NRC_CVFICO 		0x55	/* Cert. verif. failed. Inv. Content	 */
-#define UDS_NRC_CVFISC 		0x56	/* Cert. verif. failed. Inv. Scope		 */
+#define UDS_NRC_CVFISC 		0x56	/* Cert. verif. failed. Inv. Scope	 */
 #define UDS_NRC_CVFICE 		0x57	/* Cert. verif. failed. Inv. Cert.(rvk)	 */
-#define UDS_NRC_OVF 		0x58	/* Ownership verification failed		 */
-#define UDS_NRC_CCF 		0x59	/* Challenge calculation failed			 */
-#define UDS_NRC_SARF 		0x5A	/* Setting Access Rights failed			 */
+#define UDS_NRC_OVF 		0x58	/* Ownership verification failed	 */
+#define UDS_NRC_CCF 		0x59	/* Challenge calculation failed		 */
+#define UDS_NRC_SARF 		0x5A	/* Setting Access Rights failed		 */
 #define UDS_NRC_SKCDF 		0x5B	/* Session key cr/tn-deri/vtion failed	 */
-#define UDS_NRC_CDUF 		0x5C	/* Configuration data usage failed		 */
+#define UDS_NRC_CDUF 		0x5C	/* Configuration data usage failed	 */
 #define UDS_NRC_DAF 		0x5D	/* DeAuthentication failed             	 */
 #define UDS_NRC_UDNA 		0x70	/* uploadDownloadNotAccepted             */
 #define UDS_NRC_TDS 		0x71	/* transferDataSuspended             	 */
@@ -147,87 +147,87 @@ SOFTWARE.
 #define UDS_NRC_RCRRP 		0x78	/* req.Received-Resp.Pending             */
 #define UDS_NRC_SFNSIAS 	0x7E	/* SubFunc. NotSupp. In Actv.Session     */
 #define UDS_NRC_SNSIAS 		0x7F	/* serviceNotSupportedInActiveSession	 */
-#define UDS_NRC_RPMTH 		0x81	/* rpmTooHigh             				 */
-#define UDS_NRC_RPMTL 		0x82	/* rpmTooLow             				 */
-#define UDS_NRC_EIR 		0x83	/* engineIsRunning             			 */
-#define UDS_NRC_EINR 		0x84	/* engineIsNotRunning             		 */
-#define UDS_NRC_ERTTL 		0x85	/* engineRunTimeTooLow             		 */
-#define UDS_NRC_TEMPTH 		0x86	/* temperatureTooHigh             		 */
-#define UDS_NRC_TEMPTL 		0x87	/* temperatureTooLow             		 */
-#define UDS_NRC_VSTH 		0x88	/* vehicleSpeedTooHigh             		 */
-#define UDS_NRC_VSTL 		0x89	/* vehicleSpeedTooLow             		 */
+#define UDS_NRC_RPMTH 		0x81	/* rpmTooHigh             		 */
+#define UDS_NRC_RPMTL 		0x82	/* rpmTooLow             		 */
+#define UDS_NRC_EIR 		0x83	/* engineIsRunning             		 */
+#define UDS_NRC_EINR 		0x84	/* engineIsNotRunning             	 */
+#define UDS_NRC_ERTTL 		0x85	/* engineRunTimeTooLow             	 */
+#define UDS_NRC_TEMPTH 		0x86	/* temperatureTooHigh             	 */
+#define UDS_NRC_TEMPTL 		0x87	/* temperatureTooLow             	 */
+#define UDS_NRC_VSTH 		0x88	/* vehicleSpeedTooHigh             	 */
+#define UDS_NRC_VSTL 		0x89	/* vehicleSpeedTooLow             	 */
 #define UDS_NRC_TPTH 		0x8A	/* throttle/PedalTooHigh             	 */
 #define UDS_NRC_TPTL 		0x8B	/* throttle/PedalTooLow             	 */
-#define UDS_NRC_TRNIN 		0x8C	/* transmissionRangeNotInNeutral		 */
+#define UDS_NRC_TRNIN 		0x8C	/* transmissionRangeNotInNeutral	 */
 #define UDS_NRC_TRNIG 		0x8D	/* transmissionRangeNotInGear            */
 #define UDS_NRC_BSNC 		0x8F	/* brakeSwitch(es)NotClosed              */
 #define UDS_NRC_SLNIP 		0x90	/* shifterLeverNotInPark             	 */
 #define UDS_NRC_TCCL 		0x91	/* torqueConverterClutchLocked           */
-#define UDS_NRC_VTH 		0x92	/* voltageTooHigh             			 */
-#define UDS_NRC_VTL 		0x93	/* voltageTooLow             			 */
-#define UDS_NRC_RTNA 		0x94	/* ResourceTemporarilyNotAvailable		 */
-									/* Internal Flash Invalid CRC            */
+#define UDS_NRC_VTH 		0x92	/* voltageTooHigh             		 */
+#define UDS_NRC_VTL 		0x93	/* voltageTooLow             		 */
+#define UDS_NRC_RTNA 		0x94	/* ResourceTemporarilyNotAvailable	 */
+					/* Internal Flash Invalid CRC            */
 #define UDS_NRC_VMSCNC00 	0xF0	/* vehicleManufacturerSpecificErrorCode	 */
-									/* Invalid Firmware Start Bytes          */
+					/* Invalid Firmware Start Bytes          */
 #define UDS_NRC_VMSCNC01 	0xF1	/* vehicleManufacturerSpecificErrorCode	 */
-									/* Invalid Firmware Properties Space     */
+					/* Invalid Firmware Properties Space     */
 #define UDS_NRC_VMSCNC02 	0xF2	/* vehicleManufacturerSpecificErrorCode	 */
-									/* Error Validating Firmware Properties  */
+					/* Error Validating Firmware Properties  */
 #define UDS_NRC_VMSCNC03 	0xF3	/* vehicleManufacturerSpecificErrorCode  */
-									/* Value is empty                        */
+					/* Value is empty                        */
 #define UDS_NRC_VMSCNC04 	0xF4	/* vehicleManufacturerSpecificErrorCode  */
-									/* ?                                     */
+					/* ?                                     */
 #define UDS_NRC_VMSCNC05 	0xF5	/* vehicleManufacturerSpecificErrorCode  */
-									/* ?                                     */
+					/* ?                                     */
 #define UDS_NRC_VMSCNC06	0xF6	/* vehicleManufacturerSpecificErrorCode  */
-									/* ?                                     */
+					/* ?                                     */
 #define UDS_NRC_VMSCNC07 	0xF7	/* vehicleManufacturerSpecificErrorCode  */
-									/* ?                                     */
+					/* ?                                     */
 #define UDS_NRC_VMSCNC08 	0xF8	/* vehicleManufacturerSpecificErrorCode  */
-									/* ?                                     */
+					/* ?                                     */
 #define UDS_NRC_VMSCNC09 	0xF9	/* vehicleManufacturerSpecificErrorCode  */
-									/* ?                                     */
+					/* ?                                     */
 #define UDS_NRC_VMSCNC10 	0xFA	/* vehicleManufacturerSpecificErrorCode  */
-									/* ?                                     */
+					/* ?                                     */
 #define UDS_NRC_VMSCNC11 	0xFB	/* vehicleManufacturerSpecificErrorCode  */
-									/* ?                                     */
+					/* ?                                     */
 #define UDS_NRC_VMSCNC12 	0xFC	/* vehicleManufacturerSpecificErrorCode  */
-									/* ?                                     */
+					/* ?                                     */
 #define UDS_NRC_VMSCNC13 	0xFD	/* vehicleManufacturerSpecificErrorCode  */
-									/* ?                                     */
+					/* ?                                     */
 #define UDS_NRC_VMSCNC14 	0xFE	/* vehicleManufacturerSpecificErrorCode  */
 
 /* -- Transmission Mode [ ISO14229-1-2020 p.421 ]			              -- */
 
-#define UDS_TMD_SASR 		0x01	/* sendAtSlowRate    				     */
-#define UDS_TMD_SAMR 		0x02	/* sendAtMediumRate    				     */
-#define UDS_TMD_SAFR 		0x03	/* sendAtFastRate    				     */
-#define UDS_TMD_SS 		0x04	/* stopSending    				         */
+#define UDS_TMD_SASR 		0x01	/* sendAtSlowRate    			  */
+#define UDS_TMD_SAMR 		0x02	/* sendAtMediumRate    			  */
+#define UDS_TMD_SAFR 		0x03	/* sendAtFastRate    			  */
+#define UDS_TMD_SS 		0x04	/* stopSending    			  */
 
 /* -- DTC Retrieve SubFunction [ ISO14229-1-2020 p.227 ]		          -- */
 
-#define UDS_RDTC_RNODTCBSM 		0x01   /* rep.Num.OfDTCByStatusMask		 */
-#define UDS_RDTC_RDTCBSM 		0x02   /* rep.DTCByStatusMask			 */
+#define UDS_RDTC_RNODTCBSM 		0x01   /* rep.Num.OfDTCByStatusMask	 */
+#define UDS_RDTC_RDTCBSM 		0x02   /* rep.DTCByStatusMask		 */
 #define UDS_RDTC_RDTCSSI  		0x03   /* rep.DTCSn/t Identification	 */
-#define UDS_RDTC_RDTCSSBDTC  		0x04   /* rep.DTCSn/t Rec. ByDTCNum	     */
+#define UDS_RDTC_RDTCSSBDTC  		0x04   /* rep.DTCSn/t Rec. ByDTCNum	 */
 #define UDS_RDTC_RDTCSDBRN  		0x05   /* rep.DTCStored DtByRec.Num      */
 #define UDS_RDTC_RDTCEDRBDN  		0x06   /* rep.DTCExt DtRec.ByDTCNumber	 */
 #define UDS_RDTC_RNODTCBSMR  		0x07   /* rep.Num.OfDTCBySvrt.MaskRec. 	 */
 #define UDS_RDTC_RDTCBSMR  		0x08   /* rep.DTCBySeverityMaskRecord	 */
 #define UDS_RDTC_RSIODTC  		0x09   /* rep.SeverityInformationOfDTC	 */
-#define UDS_RDTC_RSUPDTC  		0x0A   /* rep.SupportedDTC			     */
-#define UDS_RDTC_RFTFDTC  		0x0B   /* rep.FirstTestFailedDTC		 */
+#define UDS_RDTC_RSUPDTC  		0x0A   /* rep.SupportedDTC		 */
+#define UDS_RDTC_RFTFDTC  		0x0B   /* rep.FirstTestFailedDTC	 */
 #define UDS_RDTC_RMRTFDTC  		0x0D   /* rep.MostRecentTestFailedDTC	 */
-#define UDS_RDTC_RFCDTC 		0x0C   /* rep.FirstConfirmedDTC			 */
+#define UDS_RDTC_RFCDTC 		0x0C   /* rep.FirstConfirmedDTC		 */
 #define UDS_RDTC_RMRCDTC  		0x0E   /* rep.MostRecentConfirmedDTC	 */
 #define UDS_RDTC_RDTCFDC  		0x14   /* rep.DTCFaultDetection-Counter	 */
 #define UDS_RDTC_RDTCWPS  		0x15   /* rep.DTCWithPermanentStatus	 */
 #define UDS_RDTC_RDTCEDBR  		0x16   /* rep.DTCExtDataRec.ByRec.Num.	 */
-#define UDS_RDTC_RUDMDTCBSM  		0x17   /* rep.UDM.DTCByStatusMask	     */
+#define UDS_RDTC_RUDMDTCBSM  		0x17   /* rep.UDM.DTCByStatusMask	 */
 #define UDS_RDTC_RUDMDTCSSBDTC		0x18   /* rep.UDM.DTCSnap.Rec.ByDTCNum.  */
 #define UDS_RDTC_RUDMDTCEDRBDN		0x19   /* rep.UDM.DTCExtDt.Rec.ByDTCNum. */
 #define UDS_RDTC_RDTCEDI  		0x1A   /* rep.SupportedDTCExtDataRec.	 */
-#define UDS_RDTC_RWWHOBDDTCBMR 		0x42   /* rep.WWHOBDDTCByMaskRecord		 */
+#define UDS_RDTC_RWWHOBDDTCBMR 		0x42   /* rep.WWHOBDDTCByMaskRecord	 */
 #define UDS_RDTC_RWWHOBDDTCWPS 		0x55   /* rep.WWHOBDDTCWithPerm.Status	 */
 #define UDS_RDTC_RDTCBRGI  		0x56   /* rep.DTCInfoByDTCRdness.Gr.Id.  */
 
