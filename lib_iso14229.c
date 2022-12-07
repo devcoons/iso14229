@@ -417,12 +417,11 @@ void iso14229_1_srvc_request_transfer_exit()
 
 	if(dtr_crc == uds_tranfer_data.calculated_crc && dtr_len == uds_tranfer_data.expected_data_len)
 	{
-		uint8_t t_buffer[2];
-		t_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
-		t_buffer[1] = iso14229_1_received_indn.msg[1];
+		iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
+		iso14229_1_temporary_buffer[1] = iso14229_1_received_indn.msg[1];
 		uds_tranfer_data.sts = uds_tranfer_data.default_sts;
 		uds_download_request.sts = uds_download_request.default_sts;
-		iso14229_send(&iso14229_1_received_indn.n_ai,t_buffer,2);
+		iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,2);
 	}
 	else
 	{
@@ -498,11 +497,9 @@ void iso14229_1_srvc_input_output_control_by_identifier()
 
 	for(register uint32_t i = 0;i<list_sz;i++)
 	{
-
 		if(uds_io_control_by_id[i]->id == data_id && uds_io_control_by_id[i]->id != 0)
 		{
 			current_iocontrol = uds_io_control_by_id[i];
-
 			break;
 		}
 	}
@@ -792,17 +789,15 @@ void iso14229_1_srvc_security_access()
 		}
 	}
 
-	static uint8_t t_buffer[6];
-
 	if(current_sa->sts == SA_ACTIVE && req_type == 0x01)
 	{
-		t_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
-		t_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
-		t_buffer[2] = 0;
-		t_buffer[3] = 0;
-		t_buffer[4] = 0;
-		t_buffer[5] = 0;
-		iso14229_send(&iso14229_1_received_indn.n_ai,t_buffer,6);
+		iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
+		iso14229_1_temporary_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
+		iso14229_1_temporary_buffer[2] = 0;
+		iso14229_1_temporary_buffer[3] = 0;
+		iso14229_1_temporary_buffer[4] = 0;
+		iso14229_1_temporary_buffer[5] = 0;
+		iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,6);
 		return;
 	}
 
@@ -816,13 +811,13 @@ void iso14229_1_srvc_security_access()
 		}
 		current_sa->sts = SA_IN_PROGRESS;
 		current_sa->current_seed = random32();
-		t_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
-		t_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
-		t_buffer[2] = (current_sa->current_seed & 0xFF000000) >> 24;
-		t_buffer[3] = (current_sa->current_seed & 0x00FF0000) >> 16;
-		t_buffer[4] = (current_sa->current_seed & 0x0000FF00) >> 8;
-		t_buffer[5] = (current_sa->current_seed & 0x000000FF) >> 0;
-		iso14229_send(&iso14229_1_received_indn.n_ai,t_buffer,6);
+		iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
+		iso14229_1_temporary_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
+		iso14229_1_temporary_buffer[2] = (current_sa->current_seed & 0xFF000000) >> 24;
+		iso14229_1_temporary_buffer[3] = (current_sa->current_seed & 0x00FF0000) >> 16;
+		iso14229_1_temporary_buffer[4] = (current_sa->current_seed & 0x0000FF00) >> 8;
+		iso14229_1_temporary_buffer[5] = (current_sa->current_seed & 0x000000FF) >> 0;
+		iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,6);
 		break;
 
 	case 0x00:
@@ -841,9 +836,9 @@ void iso14229_1_srvc_security_access()
 			last_trial_time = 0;
 			inc_delay=0;
 			current_sa->sts = SA_ACTIVE;
-			t_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
-			t_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
-			iso14229_send(&iso14229_1_received_indn.n_ai,t_buffer,2);
+			iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
+			iso14229_1_temporary_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
+			iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,2);
 			return;
 		}
 		else
@@ -877,11 +872,9 @@ void iso14229_1_srvc_tester_present()
 		return;
 	}
 
-	static uint8_t t_buffer[2];
-
-	t_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
-	t_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
-	iso14229_send(&iso14229_1_received_indn.n_ai,t_buffer,2);
+	iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
+	iso14229_1_temporary_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
+	iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,2);
 
 	iso14229_1_srvc_diagnostic_session_refresh_timeout();
 }
@@ -943,11 +936,11 @@ void iso14229_1_srvc_tranfer_data()
 		uds_tranfer_data.remaining_data_len -= transfer_data_collection_pos;
 		transfer_data_collection_pos = 0;
 	}
-	static uint8_t t_buffer[2];
-	t_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
-	t_buffer[1] = iso14229_1_received_indn.msg[1];
+
+	iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
+	iso14229_1_temporary_buffer[1] = iso14229_1_received_indn.msg[1];
 	uds_tranfer_data.sts = TD_ACTIVE;
-	iso14229_send(&iso14229_1_received_indn.n_ai,t_buffer,2);
+	iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,2);
 	return;
 }
 
@@ -1010,15 +1003,14 @@ void iso14229_1_srvc_diagnostic_session_control()
 	if(current_session->on_opening != NULL)
 		current_session->on_opening();
 
-	static uint8_t t_buffer[6];
-	t_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
-	t_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
-	t_buffer[2] = (current_session->timeout.max_response & 0xFF00) >> 8;
-	t_buffer[3] = (current_session->timeout.max_response & 0x00FF) >> 0;
-	t_buffer[4] = (current_session->timeout.time_limit & 0xFF00) >> 8;
-	t_buffer[5] = (current_session->timeout.time_limit & 0x00FF) >> 0;
+	iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
+	iso14229_1_temporary_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
+	iso14229_1_temporary_buffer[2] = (current_session->timeout.max_response & 0xFF00) >> 8;
+	iso14229_1_temporary_buffer[3] = (current_session->timeout.max_response & 0x00FF) >> 0;
+	iso14229_1_temporary_buffer[4] = (current_session->timeout.time_limit & 0xFF00) >> 8;
+	iso14229_1_temporary_buffer[5] = (current_session->timeout.time_limit & 0x00FF) >> 0;
 
-	iso14229_send(&iso14229_1_received_indn.n_ai,t_buffer,6);
+	iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,6);
 
 	current_session->timeout.last_update = iso14229_getms();
 }
@@ -1049,8 +1041,6 @@ void iso14229_1_uds_srvc_ecu_reset()
 		return;
 	}
 
-	static uint8_t t_buffer[2];
-
 	switch(__uds_get_subfunction(iso14229_1_received_indn.msg))
 	{
 	case 0x01:
@@ -1058,9 +1048,9 @@ void iso14229_1_uds_srvc_ecu_reset()
 			break;
 		uds_server.s_msg = 0;
 		uds_server.errn = 0;
-		t_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
-		t_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
-		iso14229_send(&iso14229_1_received_indn.n_ai,t_buffer,2);
+		iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
+		iso14229_1_temporary_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
+		iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,2);
 		iso15765_process(&uds_server.nl);
 		do
 		{
@@ -1074,9 +1064,9 @@ void iso14229_1_uds_srvc_ecu_reset()
 			break;
 		uds_server.s_msg = 0;
 		uds_server.errn = 0;
-		t_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
-		t_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
-		iso14229_send(&iso14229_1_received_indn.n_ai,t_buffer,2);
+		iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
+		iso14229_1_temporary_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
+		iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,2);
 		iso15765_process(&uds_server.nl);
 		do
 		{
@@ -1091,9 +1081,9 @@ void iso14229_1_uds_srvc_ecu_reset()
 			break;
 		uds_server.s_msg = 0;
 		uds_server.errn = 0;
-		t_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
-		t_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
-		iso14229_send(&iso14229_1_received_indn.n_ai,t_buffer,2);
+		iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
+		iso14229_1_temporary_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
+		iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,2);
 		iso15765_process(&uds_server.nl);
 		do
 		{
@@ -1107,9 +1097,9 @@ void iso14229_1_uds_srvc_ecu_reset()
 			break;
 		uds_server.s_msg = 0;
 		uds_server.errn = 0;
-		t_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
-		t_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
-		iso14229_send(&iso14229_1_received_indn.n_ai,t_buffer,2);
+		iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
+		iso14229_1_temporary_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
+		iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,2);
 		iso15765_process(&uds_server.nl);
 		do
 		{
@@ -1123,9 +1113,9 @@ void iso14229_1_uds_srvc_ecu_reset()
 			break;
 		uds_server.s_msg = 0;
 		uds_server.errn = 0;
-		t_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
-		t_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
-		iso14229_send(&iso14229_1_received_indn.n_ai,t_buffer,2);
+		iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
+		iso14229_1_temporary_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
+		iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,2);
 		iso15765_process(&uds_server.nl);
 		do
 		{
