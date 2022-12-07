@@ -38,6 +38,16 @@ SOFTWARE.
 #include <stdlib.h>
 #include <stdint.h>
 
+#if __has_include("stm32l5xx_hal.h")
+	#include "stm32l5xx_hal.h"
+#elif __has_include("stm32h7xx_hal.h")
+	#include "stm32h7xx_hal.h"
+#elif __has_include("stm32l4xx_hal.h")
+	#include "stm32l4xx_hal.h"
+#else
+	#error "Missing: `stm32yyxx_hal.h`."
+#endif
+
 #if __has_include("lib_iso15765.h")
 		#include "lib_iso15765.h"
 		#define LIB_ISO14229_1_ENABLED
@@ -473,7 +483,7 @@ typedef struct __attribute__ ((aligned (4)))
 		{
 			void* address;
 			void* size;
-			variable_type type;
+			var_type type;
 		}as_addr;
 		struct __attribute__((packed))
 		{
@@ -496,7 +506,7 @@ typedef struct __attribute__ ((aligned (4)))
 	uint32_t security_level;
 	iocontrol_type type;
 	iocontrol_status sts;
-	variable_type var_type;
+	var_type var_type;
 	intptr_t ptr_iocontrol;
 	intptr_t ptr_inactive;
 	uint32_t out_val;

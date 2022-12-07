@@ -13,17 +13,6 @@
 
 #include "lib_iso14229.h"
 
-#if defined(STM32H753xx)
-	#include "stm32h7xx_hal.h"
-
-#elif defined(STM32H753xx)
-	#include "stm32l5xx_hal.h"
-
-#else
-	#error "NOT SUPPORTED"
-	
-#endif
-
 /******************************************************************************
 * Enumerations, structures & Variables
 ******************************************************************************/

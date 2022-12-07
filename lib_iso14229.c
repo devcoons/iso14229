@@ -33,7 +33,6 @@ SOFTWARE.
 
 #ifdef LIB_ISO14229_1_ENABLED
 
-#include "rng.h"
 
 /******************************************************************************
 * Enumerations, structures & Variables
@@ -562,11 +561,11 @@ void iso14229_1_srvc_input_output_control_by_identifier()
 	}
 	current_iocontrol->sts = IOC_ACTIVE;
 	//
-	if(current_iocontrol->var_type == VAR_TYPE_u8 || current_iocontrol->var_type == VAR_TYPE_i8)
+	if(current_iocontrol->var_type == VAR_TYPE_U8 || current_iocontrol->var_type == VAR_TYPE_I8)
 		current_iocontrol->out_val = iso14229_1_received_indn.msg[4];
-	else if(current_iocontrol->var_type == VAR_TYPE_u16 || current_iocontrol->var_type == VAR_TYPE_i16)
+	else if(current_iocontrol->var_type == VAR_TYPE_U16 || current_iocontrol->var_type == VAR_TYPE_I16)
 		current_iocontrol->out_val = iso14229_1_received_indn.msg[4]<<8 | iso14229_1_received_indn.msg[5];
-	else if(current_iocontrol->var_type == VAR_TYPE_u32 || current_iocontrol->var_type == VAR_TYPE_i32)
+	else if(current_iocontrol->var_type == VAR_TYPE_U32 || current_iocontrol->var_type == VAR_TYPE_I32)
 		current_iocontrol->out_val = iso14229_1_received_indn.msg[4]<<24 | iso14229_1_received_indn.msg[5]<<16 | iso14229_1_received_indn.msg[6]<<8 | iso14229_1_received_indn.msg[7];
 
 	switch(ioc_param)
@@ -816,7 +815,7 @@ void iso14229_1_srvc_security_access()
 				uds_security_accesses[i].sts = uds_security_accesses[i].default_sts;
 		}
 		current_sa->sts = SA_IN_PROGRESS;
-		HAL_RNG_GenerateRandomNumber(&hrng, &current_sa->current_seed);
+		current_sa->current_seed = random32();
 		t_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
 		t_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
 		t_buffer[2] = (current_sa->current_seed & 0xFF000000) >> 24;
@@ -1379,17 +1378,17 @@ void iso14229_srvc_write_data_by_localid()
 	{
 		switch(current_local_id->data.as_addr.type)
 		{
-		case VAR_TYPE_u8:
-		case VAR_TYPE_i8:
-		case VAR_TYPE_arr:
+		case VAR_TYPE_U8:
+		case VAR_TYPE_I8:
+		case VAR_TYPE_ARR:
 			memmove(current_local_id->data.as_addr.address,(iso14229_1_received_indn.msg + 3),iso14229_1_received_indn.msg_sz - 3);
 			break;
-		case VAR_TYPE_u16:
-		case VAR_TYPE_i16:
+		case VAR_TYPE_U16:
+		case VAR_TYPE_I16:
 			(*((uint16_t*)current_local_id->data.as_addr.address)) = ((uint16_t)(*(uint8_t*)(iso14229_1_received_indn.msg + 3))) << 8 |  ((uint16_t)(*(uint8_t*)(iso14229_1_received_indn.msg + 4)));
 			break;
-		case VAR_TYPE_u32:
-		case VAR_TYPE_i32:
+		case VAR_TYPE_U32:
+		case VAR_TYPE_I32:
 			(*((uint32_t*)current_local_id->data.as_addr.address)) = ((uint32_t)(*(uint8_t*)(iso14229_1_received_indn.msg + 3))) << 24
 																	|  ((uint32_t)(*(uint8_t*)(iso14229_1_received_indn.msg + 4))) << 16
 																	|  ((uint32_t)(*(uint8_t*)(iso14229_1_received_indn.msg + 5))) << 8
