@@ -499,6 +499,16 @@ typedef struct __attribute__ ((aligned (4)))
 	void (*on_closing)();
 }uds_session_t;
 
+
+typedef struct __attribute__ ((aligned (4)))
+{
+	uint8_t DTCCode;
+	uint8_t DTCSymptom;
+	uint8_t EmissionRelated;
+	uint32_t OBDCode;
+}uds_dtc_t;
+
+
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
 
 extern __attribute__ ((aligned (4)))
@@ -523,7 +533,8 @@ extern __attribute__ ((aligned (4)))
 					uds_session_t uds_sessions[ISO14229_1_NUMOF_DIAGSESSIONS] ;
 extern __attribute__ ((aligned (4)))
 				    uds_io_control_by_id_t* uds_io_control_by_id[ISO14229_1_NUMOF_IOCONTROL];
-
+extern __attribute__ ((aligned (4)))
+				uds_dtc_t uds_dtc[ISO14229_1_NUMOF_DTC];
 
 
 /******************************************************************************
