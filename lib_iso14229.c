@@ -508,18 +508,27 @@ void iso14229_1_srvc_readDTCinformation()
 	}
 
 	uint8_t req_type = __uds_get_subfunction(iso14229_1_received_indn.msg);
-
+	uint8_t size=0;
 
 	switch(req_type)
 		{
 			case UDS_RDTC_RNODTCBSM:/* rep.Num.OfDTCByStatusMask		 */
 				iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg); //SID +0x40
 				iso14229_1_temporary_buffer[1] = UDS_RDTC_RNODTCBSM;
-				iso14229_1_temporary_buffer[2] = iso14229_1_received_indn.msg[2];									//id
+				iso14229_1_temporary_buffer[2] = 0x01;//ISO_14229-1_DTCFormat
 				iso14229_1_temporary_buffer[3] = iso14229_1_received_indn.msg[3];									//id
-				iso14229_1_temporary_buffer[4] = iso14229_1_received_indn.msg[4];
+				iso14229_1_temporary_buffer[4] = reportNumberOfDTCByStatusMask(0xff)>>8;
+				iso14229_1_temporary_buffer[5] = reportNumberOfDTCByStatusMask(0xff);
+				iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,6);
 				break;
 			case UDS_RDTC_RDTCBSM: /* rep.DTCByStatusMask			 */
+				iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg); //SID +0x40
+				iso14229_1_temporary_buffer[1] = UDS_RDTC_RDTCBSM;
+				iso14229_1_temporary_buffer[2] = iso14229_1_received_indn.msg[3];
+				size = 3;
+				reportDTCByStatusMask(0xFF,iso14229_1_temporary_buffer,&size);					//id
+
+				iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,size);
 				break;
 			default://Not Supported
 
