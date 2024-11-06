@@ -589,6 +589,24 @@ typedef struct __attribute__ ((aligned (4)))
 	void (*on_closing)();
 }uds_session_t;
 
+
+typedef struct
+{
+	uint8_t index; // indice del dizionario
+	uint8_t size; // number of byte to save 1 2 4
+	struct freeze_frame_t *next; //
+}freeze_frame_t;
+
+typedef struct __attribute__ ((aligned (4)))
+{
+	uint8_t DTCCode;
+	uint8_t DTCSymptom;
+	uint8_t EmissionRelated;
+	uint32_t OBDCode;
+	freeze_frame_t* freezeFrame;
+}uds_dtc_t;
+
+
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
 
 extern __attribute__ ((aligned (4)))
@@ -613,7 +631,8 @@ extern __attribute__ ((aligned (4)))
 					uds_session_t uds_sessions[ISO14229_1_NUMOF_DIAGSESSIONS] ;
 extern __attribute__ ((aligned (4)))
 				    uds_io_control_by_id_t* uds_io_control_by_id[ISO14229_1_NUMOF_IOCONTROL];
-
+extern __attribute__ ((aligned (4)))
+				uds_dtc_t uds_dtc[ISO14229_1_NUMOF_DTC];
 
 
 /******************************************************************************
@@ -644,6 +663,11 @@ uint8_t send_frame(cbus_id_type id_type, uint32_t id, cbus_fr_format fr_fmt, uin
  */
 uint8_t iso14229_ecu_flash_write(uint32_t address, uint8_t* data_array,uint32_t data_array_sz);
 
+/*
+ * SHIM: This function should be implemented by
+ * the user to Initialise the freez_frame.
+ */
+uint8_t iso14229_initFreezeFrame();
 /******************************************************************************
 * Declaration | Public (lib-level) Functions
 ******************************************************************************/

@@ -58,7 +58,7 @@ static iso14299_1_sid_t sid_list[] =
 	{.sid = UDS_SRVC_WriteDataByIdentifier, 		.is_supported = iso14229_1_YES },
 	{.sid = UDS_SRVC_WriteMemoryByAddress, 			.is_supported = iso14229_1_NO },
 	{.sid = UDS_SRVC_ClearDiagnosticInformation, 		.is_supported = iso14229_1_NO },
-	{.sid = UDS_SRVC_ReadDTCInformation, 			.is_supported = iso14229_1_NO },
+	{.sid = UDS_SRVC_ReadDTCInformation, 			.is_supported = iso14229_1_YES },
 	{.sid = UDS_SRVC_InputOutputControlByIdentifier, 	.is_supported = iso14229_1_YES },
 	{.sid = UDS_SRVC_RoutineControl, 			.is_supported = iso14229_1_YES },
 	{.sid = UDS_SRVC_RequestDownload, 			.is_supported = iso14229_1_YES },
@@ -269,8 +269,10 @@ uint8_t iso14229_process()
 	case UDS_SRVC_WriteMemoryByAddress:
 		break;
 	case UDS_SRVC_ClearDiagnosticInformation:
+		iso14229_1_srvc_ClearDiagnosticInformation();
 		break;
 	case UDS_SRVC_ReadDTCInformation:
+		iso14229_1_srvc_readDTCinformation();
 		break;
 	case UDS_SRVC_InputOutputControlByIdentifier:
 		iso14229_1_srvc_input_output_control_by_identifier();
@@ -473,8 +475,70 @@ void iso14229_1_srvc_input_output_control_process()
 		}
 	}
 }
+/* --- ClearDiagnosticInformation (ref:iso14229-1) Cap 12.2 p223----*/
+void iso14229_1_srvc_ClearDiagnosticInformation()
+{
+	//Minimum lenght check
+	if(iso14229_1_received_indn.msg_sz >= 4)  //pag 226
+	{
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IMLOIF);
+		return;
+	}
+
+	uint32_t groupOfDtc = 0x00 <<24 | iso14229_1_received_indn.msg[1]<<16 | iso14229_1_received_indn.msg[2]<<8|iso14229_1_received_indn.msg[3];
+
+	if(groupOfDtc != 0x00FFFFFF) //GODTC_supported ?
+	{
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_ROOR);
+				return;
+	}
 
 
+
+}
+/* --- readDTCinformation (ref:iso14229-1) Cap 12.3 p22----------- */
+void iso14229_1_srvc_readDTCinformation()
+{
+	//Minimum lenght check
+	if(iso14229_1_received_indn.msg_sz < 3)  //pag 301
+	{
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IMLOIF);
+		return;
+	}
+
+	uint8_t req_type = __uds_get_subfunction(iso14229_1_received_indn.msg);
+	uint8_t size=0;
+
+	switch(req_type)
+		{
+			case UDS_RDTC_RNODTCBSM:/* rep.Num.OfDTCByStatusMask		 */
+				iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg); //SID +0x40
+				iso14229_1_temporary_buffer[1] = UDS_RDTC_RNODTCBSM;
+				iso14229_1_temporary_buffer[2] = 0x01;//ISO_14229-1_DTCFormat
+				iso14229_1_temporary_buffer[3] = iso14229_1_received_indn.msg[3];									//id
+				iso14229_1_temporary_buffer[4] = reportNumberOfDTCByStatusMask(0xff)>>8;
+				iso14229_1_temporary_buffer[5] = reportNumberOfDTCByStatusMask(0xff);
+				iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,6);
+				break;
+			case UDS_RDTC_RDTCBSM: /* rep.DTCByStatusMask			 */
+				iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg); //SID +0x40
+				iso14229_1_temporary_buffer[1] = UDS_RDTC_RDTCBSM;
+				iso14229_1_temporary_buffer[2] = iso14229_1_received_indn.msg[3];
+				size = 3;
+				reportDTCByStatusMask(0xFF,iso14229_1_temporary_buffer,&size);					//id
+
+				iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,size);
+				break;
+			default://Not Supported
+
+				break;
+
+		}
+
+
+
+
+}
 /* --- InputOutput control functional unit (ref:iso14229-1(2020) Cap 13 p.297) ------------ */
 void iso14229_1_srvc_input_output_control_by_identifier()
 {
