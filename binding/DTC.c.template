@@ -1,0 +1,33 @@
+/*!
+	@file   DTC.c
+	@brief  Supported DTC table. A zero code is an empty slot.
+*/
+/******************************************************************************
+* Includes
+******************************************************************************/
+
+#include "lib_iso14229.h"
+
+/******************************************************************************
+* DTC table
+*
+* Defining uds_dtc here replaces the empty weak table in the library.
+* ISO14229_1_NUMOF_DTC in lib_iso14229_config.h must match this array.
+*
+* Feed results from application code:
+*   iso14229_dtc_set_result(UDS_DTC_CODE(0x01, 0x23, 0x45), 1);  failed
+*   iso14229_dtc_set_result(UDS_DTC_CODE(0x01, 0x23, 0x45), 0);  passed
+*   iso14229_dtc_operation_cycle();  once per operation cycle
+*
+* Override iso14229_dtc_on_clear() to store the table after a clear.
+******************************************************************************/
+
+uds_dtc_t uds_dtc[ISO14229_1_NUMOF_DTC] =
+{
+	{.high = 0x01, .middle = 0x23, .low = 0x45, .status = UDS_DTC_STATUS_AFTER_CLEAR},
+	{.high = 0x06, .middle = 0x00, .low = 0x11, .status = UDS_DTC_STATUS_AFTER_CLEAR},
+};
+
+/******************************************************************************
+* EOF - NO CODE AFTER THIS LINE
+******************************************************************************/

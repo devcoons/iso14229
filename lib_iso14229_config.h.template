@@ -13,9 +13,11 @@
 #define ISO14229_1_DEVICE_ADDRESS			0x19
 #define ISO14229_1_NUMOF_ROUTINESBYLOCALID 		4
 #define ISO14229_1_NUMOF_READDATABYID 	  		20
+#define ISO14229_1_NUMOF_WRITEDATABYID			4
 #define ISO14229_1_NUMOF_SECURITYACCESSES  		5
 #define ISO14229_1_NUMOF_DIAGSESSIONS	  		5
 #define ISO14229_1_NUMOF_IOCONTROL			0
+#define ISO14229_1_NUMOF_DTC				8
 
 
 /******************************************************************************

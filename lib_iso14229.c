@@ -32,6 +32,7 @@ SOFTWARE.
 ******************************************************************************/
 
 #include "lib_iso14229.h"
+#include <string.h>
 
 #ifdef LIB_ISO14229_1_ENABLED
 
@@ -59,7 +60,7 @@ static iso14299_1_sid_t sid_list[] =
 	{.sid = UDS_SRVC_DynamicallyDefineDataIdentifier, 	.is_supported = iso14229_1_NO },
 	{.sid = UDS_SRVC_WriteDataByIdentifier, 		.is_supported = iso14229_1_YES },
 	{.sid = UDS_SRVC_WriteMemoryByAddress, 			.is_supported = iso14229_1_NO },
-	{.sid = UDS_SRVC_ClearDiagnosticInformation, 		.is_supported = iso14229_1_NO },
+	{.sid = UDS_SRVC_ClearDiagnosticInformation, 		.is_supported = iso14229_1_YES },
 	{.sid = UDS_SRVC_ReadDTCInformation, 			.is_supported = iso14229_1_YES },
 	{.sid = UDS_SRVC_InputOutputControlByIdentifier, 	.is_supported = iso14229_1_YES },
 	{.sid = UDS_SRVC_RoutineControl, 			.is_supported = iso14229_1_YES },
@@ -103,6 +104,12 @@ static __attribute__ ((section(".buffers")))
 					uint8_t temporary_flash_64bytes[256] = {0};
 static __attribute__ ((section(".buffers")))
 					uint8_t iso14229_1_temporary_buffer[514] = {0};
+
+#if ISO14229_1_NUMOF_DTC > 0
+/* Empty table. Define uds_dtc in the application to replace it. */
+__attribute__ ((weak, aligned (4)))
+uds_dtc_t uds_dtc[ISO14229_1_NUMOF_DTC];
+#endif
 static __attribute__ ((section(".buffers")))
 					uint32_t transfer_data_collection_pos =  0;
 static __attribute__ ((section(".buffers")))
@@ -114,6 +121,7 @@ static __attribute__ ((section(".buffers")))
 
 static void indn(n_indn_t* info);
 static void on_error(n_rslt err_type);
+static uint32_t uds_load_be(const uint8_t *data, uint8_t length);
 
 /******************************************************************************
 * Definition  | Static Functions
@@ -140,6 +148,16 @@ static void cfm(n_cfm_t* info)
 	UNUSED(info);
 }
 
+static uint32_t uds_load_be(const uint8_t *data, uint8_t length)
+{
+	uint32_t value = 0;
+
+	for(uint8_t i = 0; i < length; i++)
+		value = (value << 8) | data[i];
+
+	return value;
+}
+
 /******************************************************************************
 * Definition  | Public Functions
 ******************************************************************************/
@@ -160,7 +178,7 @@ void iso14229_init()
 
 	memset(&uds_server.nl,0,sizeof(iso15765_t));
 	uds_server.nl.addr_md = N_ADM_FIXED;
-	uds_server.nl.fr_id_type = CBUS_ID_T_EXTENDED,
+	uds_server.nl.fr_id_type = CBUS_ID_T_EXTENDED;
 	uds_server.nl.clbs.send_frame = send_frame;
 	uds_server.nl.clbs.on_error = on_error;
 	uds_server.nl.clbs.get_ms = iso14229_getms;
@@ -214,6 +232,9 @@ uint8_t iso14229_process()
 	uds_server.last_updated = iso14229_getms();
 
 	uds_server.p_msg = 0;
+
+	if(iso14229_1_received_indn.msg_sz < 1)
+		return 1;
 
 	if(sid_supported(iso14229_1_received_indn.msg[0]) != iso14229_1_YES)
 		goto gt_iso14229_process_nack;
@@ -364,6 +385,15 @@ void iso14229_send(n_ai_t *ai, uint8_t* data, uint16_t sz)
 void iso14229_send_NRC(n_ai_t *ai,uint8_t sid, uint8_t code)
 {
 	static uint8_t data[3];
+
+	/* ISO 14229-1: these NRCs are not sent for a functional request. */
+	if(ai != NULL && ai->n_tt == N_TA_T_FUNC)
+	{
+		if(code == UDS_NRC_SNS || code == UDS_NRC_SFNS || code == UDS_NRC_ROOR
+				|| code == UDS_NRC_SFNSIAS || code == UDS_NRC_SNSIAS)
+			return;
+	}
+
 	data[0] = 0x7F;
 	data[1] = sid;
 	data[2] = code;
@@ -416,8 +446,8 @@ void iso14229_1_srvc_request_transfer_exit()
 		return;
 	}
 
-	uint16_t dtr_crc = (iso14229_1_received_indn.msg[1] << 8) |  iso14229_1_received_indn.msg[2];
-	uint32_t dtr_len =   (iso14229_1_received_indn.msg[3] << 24) | (iso14229_1_received_indn.msg[4]<<16) | (iso14229_1_received_indn.msg[5] << 8) |  iso14229_1_received_indn.msg[6];
+	uint16_t dtr_crc = (uint16_t)uds_load_be(&iso14229_1_received_indn.msg[1], 2);
+	uint32_t dtr_len = uds_load_be(&iso14229_1_received_indn.msg[3], 4);
 
 	if(dtr_crc == uds_tranfer_data.calculated_crc && dtr_len == uds_tranfer_data.expected_data_len)
 	{
@@ -439,7 +469,10 @@ void iso14229_1_srvc_request_transfer_exit()
 
 intptr_t iso14229_srvc_ioc_get(uds_io_control_by_id_t* h)
 {
-	if(h->ptr_iocontrol != h->ptr_inactive && h->ptr_iocontrol != (uint32_t)&h->out_val)
+	if(h == NULL)
+		return 0;
+
+	if(h->ptr_iocontrol != h->ptr_inactive && h->ptr_iocontrol != (intptr_t)&h->out_val)
 	{
 		return h->ptr_inactive;
 	}
@@ -450,22 +483,22 @@ intptr_t iso14229_srvc_ioc_get(uds_io_control_by_id_t* h)
 void iso14229_1_srvc_input_output_control_process()
 {
 	uint32_t sessions_list_sz = sizeof(uds_sessions) / sizeof(uds_session_t);
-	uint32_t session_valid = -1;
+	int session_valid = -1;
 	for(register uint32_t i = 0; i < sessions_list_sz; i++)
 	{
 		if(uds_sessions[i].sts == A_ACTIVE)
-			session_valid = i;
+			session_valid = (int)i;
 	}
 
-	if(session_valid == -1)
+	if(session_valid < 0)
 		return;
 
 	uint32_t list_sz = sizeof(uds_io_control_by_id)/sizeof(uds_io_control_by_id_t*);
 
-	iocontrol_status sts =  RTN_INACTIVE;
-
 	for(register uint32_t i = 0;i<list_sz;i++)
 	{
+		if(uds_io_control_by_id[i] == NULL)
+			continue;
 
 		if(uds_io_control_by_id[i]->sts == IOC_ACTIVE && uds_io_control_by_id[i]->session != uds_sessions[session_valid].id)
 		{
@@ -477,69 +510,251 @@ void iso14229_1_srvc_input_output_control_process()
 		}
 	}
 }
-/* --- ClearDiagnosticInformation (ref:iso14229-1) Cap 12.2 p223----*/
-void iso14229_1_srvc_ClearDiagnosticInformation()
+/* --- DTC table helpers (ref: ISO14229-1 ReadDTC / ClearDiagnostic) ------- */
+
+static uint32_t uds_dtc_code(const uds_dtc_t *dtc)
 {
-	//Minimum lenght check
-	if(iso14229_1_received_indn.msg_sz >= 4)  //pag 226
+	return ((uint32_t)dtc->high << 16) | ((uint32_t)dtc->middle << 8) | dtc->low;
+}
+
+static uint8_t uds_dtc_reported_status(const uds_dtc_t *dtc)
+{
+	return dtc->status & UDS_DTC_STATUS_AVAILABILITY_MASK;
+}
+
+static uint8_t uds_dtc_status_matches(const uds_dtc_t *dtc, uint8_t mask)
+{
+	return (uds_dtc_reported_status(dtc) & mask) != 0;
+}
+
+static void uds_dtc_clear_record(uds_dtc_t *dtc)
+{
+	dtc->status = UDS_DTC_STATUS_AFTER_CLEAR;
+}
+
+/*
+ * First failed result confirms the DTC. Confirmed stays set until a clear.
+ * Pending stays set through the rest of this operation cycle, including a
+ * later pass, and is cleared on the next cycle only if that cycle did not fail.
+ */
+static void uds_dtc_apply_result(uds_dtc_t *dtc, uint8_t failed)
+{
+	if(failed)
+	{
+		dtc->status |= UDS_DTC_STS_TF | UDS_DTC_STS_TFTOC | UDS_DTC_STS_PDTC
+				| UDS_DTC_STS_CDTC | UDS_DTC_STS_TFSLC;
+		dtc->status &= (uint8_t)~(UDS_DTC_STS_TNCSLC | UDS_DTC_STS_TNCTOC);
+	}
+	else
+	{
+		dtc->status &= (uint8_t)~UDS_DTC_STS_TF;
+		dtc->status &= (uint8_t)~(UDS_DTC_STS_TNCSLC | UDS_DTC_STS_TNCTOC);
+		if((dtc->status & UDS_DTC_STS_TFTOC) == 0)
+			dtc->status &= (uint8_t)~UDS_DTC_STS_PDTC;
+	}
+}
+
+static uint16_t uds_dtc_count_matching(uint8_t mask)
+{
+	uint32_t count = 0;
+
+#if ISO14229_1_NUMOF_DTC > 0
+	for(uint32_t i = 0; i < ISO14229_1_NUMOF_DTC; i++)
+	{
+		if(uds_dtc_code(&uds_dtc[i]) == 0)
+			continue;
+		if(uds_dtc_status_matches(&uds_dtc[i], mask) && count < 0xFFFFu)
+			count++;
+	}
+#else
+	(void)mask;
+#endif
+	return (uint16_t)count;
+}
+
+static uint8_t uds_dtc_append_records(uint8_t *buf, uint16_t *pos, uint16_t max_sz, uint8_t mask, uint8_t use_mask)
+{
+#if ISO14229_1_NUMOF_DTC > 0
+	for(uint32_t i = 0; i < ISO14229_1_NUMOF_DTC; i++)
+	{
+		if(uds_dtc_code(&uds_dtc[i]) == 0)
+			continue;
+		if(use_mask && uds_dtc_status_matches(&uds_dtc[i], mask) == 0)
+			continue;
+		if(*pos > max_sz || (uint16_t)(max_sz - *pos) < 4u)
+			return 0;
+
+		buf[(*pos)++] = uds_dtc[i].high;
+		buf[(*pos)++] = uds_dtc[i].middle;
+		buf[(*pos)++] = uds_dtc[i].low;
+		buf[(*pos)++] = uds_dtc_reported_status(&uds_dtc[i]);
+	}
+#else
+	(void)buf;
+	(void)pos;
+	(void)max_sz;
+	(void)mask;
+	(void)use_mask;
+#endif
+	return 1;
+}
+
+__attribute__ ((weak)) void iso14229_dtc_on_clear(uint32_t group_of_dtc)
+{
+	(void)group_of_dtc;
+}
+
+uint8_t iso14229_dtc_set_result(uint32_t dtc, uint8_t failed)
+{
+	uint8_t found = 0;
+
+#if ISO14229_1_NUMOF_DTC > 0
+	if(dtc == 0)
+		return 0;
+
+	for(uint32_t i = 0; i < ISO14229_1_NUMOF_DTC; i++)
+	{
+		if(uds_dtc_code(&uds_dtc[i]) != dtc)
+			continue;
+		uds_dtc_apply_result(&uds_dtc[i], failed);
+		found = 1;
+	}
+#else
+	(void)dtc;
+	(void)failed;
+#endif
+	return found;
+}
+
+void iso14229_dtc_operation_cycle(void)
+{
+#if ISO14229_1_NUMOF_DTC > 0
+	for(uint32_t i = 0; i < ISO14229_1_NUMOF_DTC; i++)
+	{
+		if(uds_dtc_code(&uds_dtc[i]) == 0)
+			continue;
+		if((uds_dtc[i].status & UDS_DTC_STS_TFTOC) == 0)
+			uds_dtc[i].status &= (uint8_t)~UDS_DTC_STS_PDTC;
+		uds_dtc[i].status &= (uint8_t)~UDS_DTC_STS_TFTOC;
+		uds_dtc[i].status |= UDS_DTC_STS_TNCTOC;
+	}
+#endif
+}
+
+/* --- ClearDiagnosticInformation (ref: ISO14229-1 service 0x14) ----------- */
+void iso14229_1_srvc_ClearDiagnosticInformation(void)
+{
+	/* Request is SID + 3-byte groupOfDTC. */
+	if(iso14229_1_received_indn.msg_sz != 4)
 	{
 		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IMLOIF);
 		return;
 	}
 
-	uint32_t groupOfDtc = 0x00 <<24 | iso14229_1_received_indn.msg[1]<<16 | iso14229_1_received_indn.msg[2]<<8|iso14229_1_received_indn.msg[3];
+	uint32_t group = ((uint32_t)iso14229_1_received_indn.msg[1] << 16)
+			| ((uint32_t)iso14229_1_received_indn.msg[2] << 8)
+			| (uint32_t)iso14229_1_received_indn.msg[3];
 
-	if(groupOfDtc != 0x00FFFFFF) //GODTC_supported ?
+	if(group == 0)
 	{
 		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_ROOR);
-				return;
+		return;
 	}
 
+	uint8_t cleared = 0;
 
+#if ISO14229_1_NUMOF_DTC > 0
+	for(uint32_t i = 0; i < ISO14229_1_NUMOF_DTC; i++)
+	{
+		uint32_t code = uds_dtc_code(&uds_dtc[i]);
+		if(code == 0)
+			continue;
+		if(group == UDS_DTC_GROUP_ALL || code == group)
+		{
+			uds_dtc_clear_record(&uds_dtc[i]);
+			cleared = 1;
+		}
+	}
+#endif
 
+	/* 0xFFFFFF is always a supported group. Any other value must match a DTC. */
+	if(group != UDS_DTC_GROUP_ALL && cleared == 0)
+	{
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_ROOR);
+		return;
+	}
+
+	iso14229_dtc_on_clear(group);
+
+	iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
+	iso14229_send(&iso14229_1_received_indn.n_ai, iso14229_1_temporary_buffer, 1);
 }
-/* --- readDTCinformation (ref:iso14229-1) Cap 12.3 p22----------- */
-void iso14229_1_srvc_readDTCinformation()
+
+/* --- ReadDTCInformation (ref: ISO14229-1 service 0x19) -------------------- */
+void iso14229_1_srvc_readDTCinformation(void)
 {
-	//Minimum lenght check
-	if(iso14229_1_received_indn.msg_sz < 3)  //pag 301
+	/* Minimum request is SID + sub-function. The status mask, when present, is msg[2]. */
+	if(iso14229_1_received_indn.msg_sz < 2)
 	{
 		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IMLOIF);
 		return;
 	}
 
-	uint8_t req_type = __uds_get_subfunction(iso14229_1_received_indn.msg);
-	uint8_t size=0;
+	uint8_t sub = iso14229_1_received_indn.msg[1] & 0x7Fu;
+	uint8_t suppress = iso14229_1_received_indn.msg[1] & 0x80u;
+	uint8_t expected_sz = 0;
 
-	switch(req_type)
+	switch(sub)
+	{
+	case UDS_RDTC_RNODTCBSM:	/* reportNumberOfDTCByStatusMask	 */
+	case UDS_RDTC_RDTCBSM:		/* reportDTCByStatusMask		 */
+		expected_sz = 3;
+		break;
+	case UDS_RDTC_RSUPDTC:		/* reportSupportedDTC			 */
+		expected_sz = 2;
+		break;
+	default:
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_SFNS);
+		return;
+	}
+
+	if(iso14229_1_received_indn.msg_sz != expected_sz)
+	{
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IMLOIF);
+		return;
+	}
+
+	iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
+	iso14229_1_temporary_buffer[1] = sub;
+	iso14229_1_temporary_buffer[2] = UDS_DTC_STATUS_AVAILABILITY_MASK;
+
+	uint16_t response_sz = 3;
+
+	if(sub == UDS_RDTC_RNODTCBSM)
+	{
+		uint16_t count = uds_dtc_count_matching(iso14229_1_received_indn.msg[2]);
+		iso14229_1_temporary_buffer[3] = UDS_DTC_FORMAT_IDENTIFIER;
+		iso14229_1_temporary_buffer[4] = (uint8_t)(count >> 8);
+		iso14229_1_temporary_buffer[5] = (uint8_t)count;
+		response_sz = 6;
+	}
+	else
+	{
+		uint8_t use_mask = sub == UDS_RDTC_RDTCBSM ? 1u : 0u;
+		uint8_t mask = use_mask ? iso14229_1_received_indn.msg[2] : 0u;
+
+		if(uds_dtc_append_records(iso14229_1_temporary_buffer, &response_sz,
+				(uint16_t)sizeof(iso14229_1_temporary_buffer), mask, use_mask) == 0)
 		{
-			case UDS_RDTC_RNODTCBSM:/* rep.Num.OfDTCByStatusMask		 */
-				iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg); //SID +0x40
-				iso14229_1_temporary_buffer[1] = UDS_RDTC_RNODTCBSM;
-				iso14229_1_temporary_buffer[2] = 0x01;//ISO_14229-1_DTCFormat
-				iso14229_1_temporary_buffer[3] = iso14229_1_received_indn.msg[3];									//id
-				iso14229_1_temporary_buffer[4] = reportNumberOfDTCByStatusMask(0xff)>>8;
-				iso14229_1_temporary_buffer[5] = reportNumberOfDTCByStatusMask(0xff);
-				iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,6);
-				break;
-			case UDS_RDTC_RDTCBSM: /* rep.DTCByStatusMask			 */
-				iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg); //SID +0x40
-				iso14229_1_temporary_buffer[1] = UDS_RDTC_RDTCBSM;
-				iso14229_1_temporary_buffer[2] = iso14229_1_received_indn.msg[3];
-				size = 3;
-				reportDTCByStatusMask(0xFF,iso14229_1_temporary_buffer,&size);					//id
-
-				iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,size);
-				break;
-			default://Not Supported
-
-				break;
-
+			iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_RTL);
+			return;
 		}
+	}
 
+	if(suppress)
+		return;
 
-
-
+	iso14229_send(&iso14229_1_received_indn.n_ai, iso14229_1_temporary_buffer, response_sz);
 }
 /* --- InputOutput control functional unit (ref:iso14229-1(2020) Cap 13 p.297) ------------ */
 void iso14229_1_srvc_input_output_control_by_identifier()
@@ -563,7 +778,7 @@ void iso14229_1_srvc_input_output_control_by_identifier()
 
 	for(register uint32_t i = 0;i<list_sz;i++)
 	{
-		if(uds_io_control_by_id[i]->id == data_id && uds_io_control_by_id[i]->id != 0)
+		if(uds_io_control_by_id[i] != NULL && uds_io_control_by_id[i]->id == data_id && uds_io_control_by_id[i]->id != 0)
 		{
 			current_iocontrol = uds_io_control_by_id[i];
 			break;
@@ -617,42 +832,64 @@ void iso14229_1_srvc_input_output_control_by_identifier()
 	//se arrivo qui attivo lo status ioc_active
 
 	uint8_t ioc_param = iso14229_1_received_indn.msg[3];
-	if (ioc_param >= 0x04)// ISOSAERESRVD
+	uint8_t value_len = 0;
+
+	if(ioc_param >= 0x04)
 	{
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_ROOR);
+		return;
+	}
+
+	if(ioc_param == 0x03)
+	{
+		if(current_iocontrol->var_type == VAR_TYPE_U8 || current_iocontrol->var_type == VAR_TYPE_I8)
+			value_len = 1;
+		else if(current_iocontrol->var_type == VAR_TYPE_U16 || current_iocontrol->var_type == VAR_TYPE_I16)
+			value_len = 2;
+		else if(current_iocontrol->var_type == VAR_TYPE_U32 || current_iocontrol->var_type == VAR_TYPE_I32)
+			value_len = 4;
+		else
+		{
 			iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_ROOR);
 			return;
+		}
 	}
-	current_iocontrol->sts = IOC_ACTIVE;
-	//
-	if(current_iocontrol->var_type == VAR_TYPE_U8 || current_iocontrol->var_type == VAR_TYPE_I8)
-		current_iocontrol->out_val = iso14229_1_received_indn.msg[4];
-	else if(current_iocontrol->var_type == VAR_TYPE_U16 || current_iocontrol->var_type == VAR_TYPE_I16)
-		current_iocontrol->out_val = iso14229_1_received_indn.msg[4]<<8 | iso14229_1_received_indn.msg[5];
-	else if(current_iocontrol->var_type == VAR_TYPE_U32 || current_iocontrol->var_type == VAR_TYPE_I32)
-		current_iocontrol->out_val = iso14229_1_received_indn.msg[4]<<24 | iso14229_1_received_indn.msg[5]<<16 | iso14229_1_received_indn.msg[6]<<8 | iso14229_1_received_indn.msg[7];
+
+	if(iso14229_1_received_indn.msg_sz != (uint16_t)(4u + value_len))
+	{
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IMLOIF);
+		return;
+	}
+
+	if(value_len != 0)
+		current_iocontrol->out_val = uds_load_be(&iso14229_1_received_indn.msg[4], value_len);
 
 	switch(ioc_param)
 	{
-		case 00://RCTECU - returnControlToECU
+		case 0x00: /* returnControlToECU */
 			current_iocontrol->ptr_iocontrol = current_iocontrol->ptr_inactive;
 			current_iocontrol->sts = IOC_INACTIVE;
 			break;
-		case 01: //RTD - resetToDefault
+		case 0x01: /* resetToDefault */
+		case 0x02: /* freezeCurrentState */
+			current_iocontrol->sts = IOC_ACTIVE;
 			break;
-		case 02://FCS - freezeCurrentState
-			break;
-		case 03://STA - shortTermAdjustment
+		case 0x03: /* shortTermAdjustment */
 			current_iocontrol->ptr_iocontrol = (intptr_t)&current_iocontrol->out_val;
 			current_iocontrol->sts = IOC_ACTIVE;
 			break;
+		default:
+			break;
 	}
-	iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg); //SID +0x40
-	iso14229_1_temporary_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);				//0x2F
-	iso14229_1_temporary_buffer[2] = iso14229_1_received_indn.msg[2];									//id
-	iso14229_1_temporary_buffer[3] = iso14229_1_received_indn.msg[3];									//id
-	iso14229_1_temporary_buffer[4] = iso14229_1_received_indn.msg[4];									//val
 
-	iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,5);
+	iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
+	iso14229_1_temporary_buffer[1] = iso14229_1_received_indn.msg[1];
+	iso14229_1_temporary_buffer[2] = iso14229_1_received_indn.msg[2];
+	iso14229_1_temporary_buffer[3] = ioc_param;
+	for(uint8_t i = 0; i < value_len; i++)
+		iso14229_1_temporary_buffer[4u + i] = iso14229_1_received_indn.msg[4u + i];
+
+	iso14229_send(&iso14229_1_received_indn.n_ai, iso14229_1_temporary_buffer, (uint16_t)(4u + value_len));
 
 }
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
@@ -666,7 +903,8 @@ void iso14229_1_srvc_routine_control()
 	}
 
 	volatile uds_routine_local_id_t* current_routine = NULL;
-	uint16_t routine_cmd = iso14229_1_received_indn.msg[1];
+	uint8_t routine_cmd = iso14229_1_received_indn.msg[1] & 0x7Fu;
+	uint8_t suppress = iso14229_1_received_indn.msg[1] & 0x80u;
 	uint16_t routine_id = iso14229_1_received_indn.msg[2]<< 8 | iso14229_1_received_indn.msg[3];
 	uint8_t session_valid = 0;
 	uint8_t security_check = 0;
@@ -733,20 +971,26 @@ void iso14229_1_srvc_routine_control()
 	current_routine->rst = NULL;
 	current_routine->rst_sz = 0;
 
-	uint8_t rslt = current_routine->rountine((void*)current_routine,routine_cmd,routine_args,routing_args_sz);
+	uint8_t rslt = current_routine->rountine((void*)current_routine,(routine_command)routine_cmd,routine_args,routing_args_sz);
 
 	if(rslt == 0)
 	{
+		if(current_routine->rst_sz > sizeof(iso14229_1_temporary_buffer) - 5)
+		{
+			iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_RTL);
+			return;
+		}
 
 		iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
-		iso14229_1_temporary_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
+		iso14229_1_temporary_buffer[1] = routine_cmd;
 		iso14229_1_temporary_buffer[2] = iso14229_1_received_indn.msg[2];
 		iso14229_1_temporary_buffer[3] = iso14229_1_received_indn.msg[3];
 		iso14229_1_temporary_buffer[4] = rslt;
 		if(current_routine->rst != NULL && current_routine->rst_sz !=0)
 			memmove(&iso14229_1_temporary_buffer[5],current_routine->rst,current_routine->rst_sz);
 
-		iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,5+current_routine->rst_sz);
+		if(suppress == 0)
+			iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,(uint16_t)(5u + current_routine->rst_sz));
 	}
 	else
 	{
@@ -788,10 +1032,17 @@ void iso14229_1_srvc_security_access()
 	uint32_t key;
 	uint32_t resp_key;
 	uds_security_access_t *current_sa = NULL;
-	uint8_t req_type = (__uds_get_subfunction(iso14229_1_received_indn.msg) & 0x01);
 
-	uint8_t req_sa_lvl  = req_type == 1
-			? (__uds_get_subfunction(iso14229_1_received_indn.msg) ) : (__uds_get_subfunction(iso14229_1_received_indn.msg) - 0x01);
+	if(iso14229_1_received_indn.msg_sz < 2)
+	{
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IMLOIF);
+		return;
+	}
+
+	uint8_t sub = iso14229_1_received_indn.msg[1] & 0x7Fu;
+	uint8_t suppress = iso14229_1_received_indn.msg[1] & 0x80u;
+	uint8_t req_type = sub & 0x01u;
+	uint8_t req_sa_lvl = req_type == 1 ? sub : (uint8_t)(sub - 1u);
 
 	uint32_t list_sz = sizeof(uds_security_accesses)/sizeof(uds_security_access_t);
 
@@ -835,35 +1086,24 @@ void iso14229_1_srvc_security_access()
 
 	if(last_trial_time !=0 && inc_delay != 0)
 	{
-		if(inc_delay > 5)
+		uint32_t delay_ms = inc_delay > 5 ? (60u * 60u * 1000u) : (inc_delay * 2000u);
+		if((xTaskGetTickCount() - last_trial_time) < delay_ms)
 		{
-			if( (last_trial_time + (60*60*1000)) > xTaskGetTickCount() )
-			{
-				last_trial_time = xTaskGetTickCount();
-				iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_RTDNE);
-				return;
-			}
-		}
-		else
-		{
-			if((last_trial_time + inc_delay*2000) > xTaskGetTickCount())
-			{
-				last_trial_time = xTaskGetTickCount();
-				iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_RTDNE);
-				return;
-			}
+			iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_RTDNE);
+			return;
 		}
 	}
 
 	if(current_sa->sts == SA_ACTIVE && req_type == 0x01)
 	{
 		iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
-		iso14229_1_temporary_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
+		iso14229_1_temporary_buffer[1] = sub;
 		iso14229_1_temporary_buffer[2] = 0;
 		iso14229_1_temporary_buffer[3] = 0;
 		iso14229_1_temporary_buffer[4] = 0;
 		iso14229_1_temporary_buffer[5] = 0;
-		iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,6);
+		if(suppress == 0)
+			iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,6);
 		return;
 	}
 
@@ -878,20 +1118,18 @@ void iso14229_1_srvc_security_access()
 		current_sa->sts = SA_IN_PROGRESS;
 		current_sa->current_seed = random32();
 		iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
-		iso14229_1_temporary_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
+		iso14229_1_temporary_buffer[1] = sub;
 		iso14229_1_temporary_buffer[2] = (current_sa->current_seed & 0xFF000000) >> 24;
 		iso14229_1_temporary_buffer[3] = (current_sa->current_seed & 0x00FF0000) >> 16;
 		iso14229_1_temporary_buffer[4] = (current_sa->current_seed & 0x0000FF00) >> 8;
 		iso14229_1_temporary_buffer[5] = (current_sa->current_seed & 0x000000FF) >> 0;
-		iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,6);
+		if(suppress == 0)
+			iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,6);
 		break;
 
 	case 0x00:
 		key = current_sa->key_validation != NULL ? current_sa->key_validation(current_sa->current_seed) : current_sa->current_seed;
-		resp_key = ((uint32_t)iso14229_1_received_indn.msg[2] << 24);
-		resp_key |= ((uint32_t)iso14229_1_received_indn.msg[3] << 16);
-		resp_key |= ((uint32_t)iso14229_1_received_indn.msg[4] << 8);
-		resp_key += iso14229_1_received_indn.msg[5];
+		resp_key = uds_load_be(&iso14229_1_received_indn.msg[2], 4);
 
 		if(key == resp_key)
 		{
@@ -903,8 +1141,9 @@ void iso14229_1_srvc_security_access()
 			inc_delay=0;
 			current_sa->sts = SA_ACTIVE;
 			iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
-			iso14229_1_temporary_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
-			iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,2);
+			iso14229_1_temporary_buffer[1] = sub;
+			if(suppress == 0)
+				iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,2);
 			return;
 		}
 		else
@@ -932,15 +1171,18 @@ void iso14229_1_srvc_tester_present()
 		return;
 	}
 
-	if(__uds_get_subfunction(iso14229_1_received_indn.msg) != 0)
+	if((__uds_get_subfunction(iso14229_1_received_indn.msg) & 0x7Fu) != 0)
 	{
 		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_SFNS);
 		return;
 	}
 
-	iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
-	iso14229_1_temporary_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
-	iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,2);
+	if((__uds_get_subfunction(iso14229_1_received_indn.msg) & 0x80u) == 0)
+	{
+		iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
+		iso14229_1_temporary_buffer[1] = 0x00;
+		iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,2);
+	}
 
 	iso14229_1_srvc_diagnostic_session_refresh_timeout();
 }
@@ -949,40 +1191,59 @@ void iso14229_1_srvc_tester_present()
 
 void iso14229_1_srvc_tranfer_data()
 {
-	if((uds_tranfer_data.sts != TD_INACTIVE && uds_tranfer_data.sts!=TD_ACTIVE)
-			|| ((uds_tranfer_data.block_counter != (uint32_t)(iso14229_1_received_indn.msg[1]+1)
-			&& (uds_tranfer_data.block_counter == 0xff && iso14229_1_received_indn.msg[1] != 0x01)
-			&& (uds_tranfer_data.sts == TD_INACTIVE && iso14229_1_received_indn.msg[1] != 0x01)) ))
+	if(iso14229_1_received_indn.msg_sz < 3 || (iso14229_1_received_indn.msg_sz - 2) > 0x200)
+	{
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IMLOIF);
+		return;
+	}
+
+	if(uds_tranfer_data.sts != TD_INACTIVE && uds_tranfer_data.sts != TD_ACTIVE)
 	{
 		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_RSE);
 		return;
 	}
 
-	if( (iso14229_1_received_indn.msg_sz < 3) || ((iso14229_1_received_indn.msg_sz - 2) > 0x200) )
+	/* After RequestDownload the first block is 0x01. Later blocks increment, wrapping FF -> 00. */
+	uint8_t expected = uds_tranfer_data.sts == TD_INACTIVE ? 0x01u : (uint8_t)uds_tranfer_data.block_counter;
+	if(iso14229_1_received_indn.msg[1] != expected)
 	{
-		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_RSE);
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_WBSC);
 		return;
 	}
-	uds_tranfer_data.block_counter = iso14229_1_received_indn.msg[1];
-	memmove(&transfer_data_collection[transfer_data_collection_pos], &iso14229_1_received_indn.msg[2],iso14229_1_received_indn.msg_sz - 2);
-	transfer_data_collection_pos += iso14229_1_received_indn.msg_sz - 2;
+
+	uint32_t payload = (uint32_t)iso14229_1_received_indn.msg_sz - 2u;
+	uint8_t align = 0;
+	if((uds_tranfer_data.current_address % 0x20u) != 0)
+		align = (uint8_t)(uds_tranfer_data.current_address % 0x20u);
+
+	if(transfer_data_collection_pos > uds_tranfer_data.remaining_data_len
+			|| payload > uds_tranfer_data.remaining_data_len - transfer_data_collection_pos
+			|| transfer_data_collection_pos + payload + align > UDS_TDC_SZ)
+	{
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_ROOR);
+		return;
+	}
+
+	uds_tranfer_data.block_counter = (uint8_t)(iso14229_1_received_indn.msg[1] + 1u);
+	memmove(&transfer_data_collection[transfer_data_collection_pos], &iso14229_1_received_indn.msg[2], payload);
+	transfer_data_collection_pos += payload;
 
 	uds_tranfer_data.calculated_crc = crc16_ccitt(uds_tranfer_data.calculated_crc, &iso14229_1_received_indn.msg[2], iso14229_1_received_indn.msg_sz - 2);
 
 	uint32_t t_transfer_data_collection_pos = 0;
 
-	if(uds_tranfer_data.current_address % 0x20 != 0)
+	if(align != 0)
 	{
-		uint8_t diff = uds_tranfer_data.current_address % 0x20;
+		uint8_t diff = align;
 
 		uds_tranfer_data.current_address -= diff;
 		memmove(&transfer_data_collection[diff],transfer_data_collection,transfer_data_collection_pos);
-		memmove(transfer_data_collection,(uint32_t*)uds_tranfer_data.current_address,diff);
+		memmove(transfer_data_collection,(uint8_t*)(uintptr_t)uds_tranfer_data.current_address,diff);
 		uds_tranfer_data.remaining_data_len+=diff;
 		transfer_data_collection_pos += diff;
 	}
 
-	for(uint32_t i=0;i<(transfer_data_collection_pos-(transfer_data_collection_pos%64));i+=64)
+	for(uint32_t i=0; i + 64u <= transfer_data_collection_pos && uds_tranfer_data.remaining_data_len >= 64u; i+=64)
 	{
 		iso14229_ecu_flash_write(uds_tranfer_data.current_address, &transfer_data_collection[i], 64);
 		t_transfer_data_collection_pos+=64;
@@ -996,7 +1257,7 @@ void iso14229_1_srvc_tranfer_data()
 	if( (uds_tranfer_data.remaining_data_len == 0 && transfer_data_collection_pos !=0 )
 			|| ( uds_tranfer_data.remaining_data_len == transfer_data_collection_pos && uds_tranfer_data.remaining_data_len!=0))
 	{
-		memmove(temporary_flash_64bytes,(uint32_t*)uds_tranfer_data.current_address,64);
+		memmove(temporary_flash_64bytes,(uint8_t*)(uintptr_t)uds_tranfer_data.current_address,64);
 		memmove(temporary_flash_64bytes,transfer_data_collection,transfer_data_collection_pos);
 		iso14229_ecu_flash_write(uds_tranfer_data.current_address, temporary_flash_64bytes, 64);
 		uds_tranfer_data.remaining_data_len -= transfer_data_collection_pos;
@@ -1023,13 +1284,15 @@ void iso14229_1_srvc_diagnostic_session_control()
 		return;
 	}
 
+	uint8_t sub = iso14229_1_received_indn.msg[1] & 0x7Fu;
+	uint8_t suppress = iso14229_1_received_indn.msg[1] & 0x80u;
 	uint32_t list_sz = sizeof(uds_sessions)/sizeof(uds_session_t);
 
 	session_status sts = A_NOT_EXISTS;
 
 	for(register uint32_t i = 0;i<list_sz;i++)
 	{
-		if(uds_sessions[i].id == __uds_get_subfunction(iso14229_1_received_indn.msg))
+		if(uds_sessions[i].id == sub)
 		{
 			current_session = &uds_sessions[i];
 			sts = uds_sessions[i].sts;
@@ -1070,13 +1333,14 @@ void iso14229_1_srvc_diagnostic_session_control()
 		current_session->on_opening();
 
 	iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
-	iso14229_1_temporary_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
+	iso14229_1_temporary_buffer[1] = sub;
 	iso14229_1_temporary_buffer[2] = (current_session->timeout.max_response & 0xFF00) >> 8;
 	iso14229_1_temporary_buffer[3] = (current_session->timeout.max_response & 0x00FF) >> 0;
 	iso14229_1_temporary_buffer[4] = (current_session->timeout.time_limit & 0xFF00) >> 8;
 	iso14229_1_temporary_buffer[5] = (current_session->timeout.time_limit & 0x00FF) >> 0;
 
-	iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,6);
+	if(suppress == 0)
+		iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,6);
 
 	current_session->timeout.last_update = iso14229_getms();
 }
@@ -1107,97 +1371,56 @@ void iso14229_1_uds_srvc_ecu_reset()
 		return;
 	}
 
-	switch(__uds_get_subfunction(iso14229_1_received_indn.msg))
+	uint8_t sub = iso14229_1_received_indn.msg[1] & 0x7Fu;
+	uint8_t suppress = iso14229_1_received_indn.msg[1] & 0x80u;
+	void (*reset_cb)() = NULL;
+
+	switch(sub)
 	{
 	case 0x01:
-		if(uds_ecu_reset.cb_HR == NULL)
-			break;
-		uds_server.s_msg = 0;
-		uds_server.errn = 0;
-		iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
-		iso14229_1_temporary_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
-		iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,2);
-		iso15765_process(&uds_server.nl);
-		do
-		{
-			osDelay(10);
-		}
-		while(uds_server.s_msg == 0 && uds_server.errn == 0);
-		uds_ecu_reset.cb_HR();
-		return;
+		reset_cb = uds_ecu_reset.cb_HR;
+		break;
 	case 0x02:
-		if(uds_ecu_reset.cb_KOFFONR == NULL)
-			break;
-		uds_server.s_msg = 0;
-		uds_server.errn = 0;
-		iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
-		iso14229_1_temporary_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
-		iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,2);
-		iso15765_process(&uds_server.nl);
-		do
-		{
-			osDelay(10);
-		}
-		while(uds_server.s_msg == 0 && uds_server.errn == 0);
-
-		uds_ecu_reset.cb_KOFFONR();
-		return;
+		reset_cb = uds_ecu_reset.cb_KOFFONR;
+		break;
 	case 0x03:
-		if(uds_ecu_reset.cb_SR == NULL)
-			break;
-		uds_server.s_msg = 0;
-		uds_server.errn = 0;
-		iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
-		iso14229_1_temporary_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
-		iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,2);
-		iso15765_process(&uds_server.nl);
-		do
-		{
-			osDelay(10);
-		}
-		while(uds_server.s_msg == 0 && uds_server.errn == 0);
-		uds_ecu_reset.cb_SR();
-		return;
+		reset_cb = uds_ecu_reset.cb_SR;
+		break;
 	case 0x04:
-		if(uds_ecu_reset.cb_ERPSD == NULL)
-			break;
-		uds_server.s_msg = 0;
-		uds_server.errn = 0;
-		iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
-		iso14229_1_temporary_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
-		iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,2);
-		iso15765_process(&uds_server.nl);
-		do
-		{
-			osDelay(10);
-		}
-		while(uds_server.s_msg == 0 && uds_server.errn == 0);
-		uds_ecu_reset.cb_ERPSD();
-		return;
+		reset_cb = uds_ecu_reset.cb_ERPSD;
+		break;
 	case 0x05:
-		if(uds_ecu_reset.cb_DRPSD == NULL)
-			break;
-		uds_server.s_msg = 0;
-		uds_server.errn = 0;
-		iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
-		iso14229_1_temporary_buffer[1] = __uds_get_subfunction(iso14229_1_received_indn.msg);
-		iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,2);
-		iso15765_process(&uds_server.nl);
-		do
-		{
-			osDelay(10);
-		}
-		while(uds_server.s_msg == 0 && uds_server.errn == 0);
-		uds_ecu_reset.cb_DRPSD();
-		return;
-
+		reset_cb = uds_ecu_reset.cb_DRPSD;
+		break;
 	default:
 		break;
 	}
 
-	iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
-			__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IMLOIF);
-	return;
+	if(reset_cb == NULL)
+	{
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
+				__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_SFNS);
+		return;
+	}
+
+	if(suppress == 0)
+	{
+		uds_server.s_msg = 0;
+		uds_server.errn = 0;
+		iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
+		iso14229_1_temporary_buffer[1] = sub;
+		iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,2);
+		iso15765_process(&uds_server.nl);
+		uint32_t wait_start = iso14229_getms();
+		do
+		{
+			osDelay(10);
+		}
+		while(uds_server.s_msg == 0 && uds_server.errn == 0
+				&& (iso14229_getms() - wait_start) < 1000u);
+	}
+
+	reset_cb();
 }
 
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
@@ -1334,6 +1557,13 @@ void iso14229_srvc_read_data_by_localid()
 			return;
 		}
 
+		if((uint32_t)tb_pos + 2u + data_buffer_sz > sizeof(iso14229_1_temporary_buffer))
+		{
+			iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
+					__uds_get_function(iso14229_1_received_indn.msg), UDS_NRC_RTL);
+			return;
+		}
+
 		iso14229_1_temporary_buffer[tb_pos] = (data_id & 0xFF00) >> 8;
 		iso14229_1_temporary_buffer[tb_pos+1] = (data_id & 0x00FF) >> 0;
 
@@ -1350,9 +1580,6 @@ void iso14229_srvc_read_data_by_localid()
 }
 
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
-
-static uint8_t data_buffer_sz;
-static uint8_t data_buffer[129];
 
 void iso14229_srvc_write_data_by_localid()
 {
@@ -1432,6 +1659,13 @@ void iso14229_srvc_write_data_by_localid()
 
 	if(current_local_id->type == WRBID_AS_MEMORY_ADDRESS)
 	{
+		if(current_local_id->data.as_addr.address == NULL)
+		{
+			iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
+					__uds_get_function(iso14229_1_received_indn.msg), UDS_NRC_VMSCNC04);
+			return;
+		}
+
 		switch(current_local_id->data.as_addr.type)
 		{
 		case VAR_TYPE_U8:
@@ -1441,14 +1675,23 @@ void iso14229_srvc_write_data_by_localid()
 			break;
 		case VAR_TYPE_U16:
 		case VAR_TYPE_I16:
-			(*((uint16_t*)current_local_id->data.as_addr.address)) = ((uint16_t)(*(uint8_t*)(iso14229_1_received_indn.msg + 3))) << 8 |  ((uint16_t)(*(uint8_t*)(iso14229_1_received_indn.msg + 4)));
+			if(iso14229_1_received_indn.msg_sz < 5)
+			{
+				iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
+						__uds_get_function(iso14229_1_received_indn.msg), UDS_NRC_IMLOIF);
+				return;
+			}
+			*((uint16_t*)current_local_id->data.as_addr.address) = (uint16_t)uds_load_be(iso14229_1_received_indn.msg + 3, 2);
 			break;
 		case VAR_TYPE_U32:
 		case VAR_TYPE_I32:
-			(*((uint32_t*)current_local_id->data.as_addr.address)) = ((uint32_t)(*(uint8_t*)(iso14229_1_received_indn.msg + 3))) << 24
-																	|  ((uint32_t)(*(uint8_t*)(iso14229_1_received_indn.msg + 4))) << 16
-																	|  ((uint32_t)(*(uint8_t*)(iso14229_1_received_indn.msg + 5))) << 8
-																	|  ((uint32_t)(*(uint8_t*)(iso14229_1_received_indn.msg + 6))) ;
+			if(iso14229_1_received_indn.msg_sz < 7)
+			{
+				iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
+						__uds_get_function(iso14229_1_received_indn.msg), UDS_NRC_IMLOIF);
+				return;
+			}
+			*((uint32_t*)current_local_id->data.as_addr.address) = uds_load_be(iso14229_1_received_indn.msg + 3, 4);
 			break;
 		default:
 			iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
@@ -1465,7 +1708,7 @@ void iso14229_srvc_write_data_by_localid()
 			return;
 		}
 
-		if(current_local_id->data.as_func.size!=0 && current_local_id->data.as_func.size != iso14229_1_received_indn.msg_sz - 3)
+		if(current_local_id->data.as_func.size!=0 && current_local_id->data.as_func.size != (uint32_t)(iso14229_1_received_indn.msg_sz - 3))
 		{
 			iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
 					__uds_get_function(iso14229_1_received_indn.msg), UDS_NRC_IMLOIF);
@@ -1503,18 +1746,21 @@ void iso14229_1_srvc_read_memory_by_address()
 		return;
 	}
 
-	uint8_t mem_addr_sz = __uds_get_subfunction(iso14229_1_received_indn.msg) & 0x0F;
-	uint8_t mem_sz_sz = (__uds_get_subfunction(iso14229_1_received_indn.msg) & 0xF0) >> 4;
+	uint8_t mem_addr_sz = iso14229_1_received_indn.msg[1] & 0x0Fu;
+	uint8_t mem_sz_sz = (uint8_t)((iso14229_1_received_indn.msg[1] & 0xF0u) >> 4);
 
-	uint64_t mem_address = 0;
-	for(int i=0; i<mem_addr_sz; i++)
-		mem_address |= (iso14229_1_received_indn.msg[2+i]) << (((mem_addr_sz-1)-i)*8);
+	if(mem_addr_sz < 1 || mem_addr_sz > 4 || mem_sz_sz < 1 || mem_sz_sz > 4
+			|| iso14229_1_received_indn.msg_sz != (uint16_t)(2u + mem_addr_sz + mem_sz_sz))
+	{
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
+				__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IMLOIF);
+		return;
+	}
 
-	uint32_t mem_sz = 0;
-	for(int i=0; i<mem_sz_sz; i++)
-		mem_sz |= (iso14229_1_received_indn.msg[2+mem_addr_sz+i]) << (((mem_sz_sz-1)-i)*8);
+	uint32_t mem_address = uds_load_be(&iso14229_1_received_indn.msg[2], mem_addr_sz);
+	uint32_t mem_sz = uds_load_be(&iso14229_1_received_indn.msg[2 + mem_addr_sz], mem_sz_sz);
 
-	if(mem_sz > 0xFF)
+	if(mem_sz == 0 || mem_sz > 0xFF)
 	{
 		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
 				__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_ROOR);
@@ -1523,9 +1769,9 @@ void iso14229_1_srvc_read_memory_by_address()
 
 	iso14229_1_temporary_buffer[0] = __uds_get_function_positive_response(iso14229_1_received_indn.msg);
 	for(uint32_t i=0;i<mem_sz;i++)
-		iso14229_1_temporary_buffer[1+i] = *((uint8_t*)((intptr_t)(mem_address+i)));
+		iso14229_1_temporary_buffer[1+i] = *((uint8_t*)(uintptr_t)(mem_address + i));
 
-	iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,1+mem_sz);
+	iso14229_send(&iso14229_1_received_indn.n_ai,iso14229_1_temporary_buffer,(uint16_t)(1u + mem_sz));
 }
 
 /* --- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (ref: xxxxxxxxxx p.xx) ------------ */
@@ -1578,13 +1824,24 @@ void iso14229_1_uds_srvc_request_download()
 		return;
 	}
 
-	uds_download_request.memory_address = 0;
-	for(int i=0; i<bcnt_mem_addr; i++)
-		uds_download_request.memory_address |= (iso14229_1_received_indn.msg[3+i]) << (((bcnt_mem_addr-1)-i)*8);
+	if(iso14229_1_received_indn.msg_sz != (uint16_t)(3u + bcnt_mem_addr + bcnt_mem_sz))
+	{
+		uds_tranfer_data.sts = TD_LOCKED;
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
+				__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_IMLOIF);
+		return;
+	}
 
-	uds_download_request.memory_sz = 0;
-	for(int i=0; i<bcnt_mem_sz; i++)
-		uds_download_request.memory_sz |= (iso14229_1_received_indn.msg[(3+bcnt_mem_addr)+i]) << (((bcnt_mem_sz-1)-i)*8);
+	uds_download_request.memory_address = uds_load_be(&iso14229_1_received_indn.msg[3], bcnt_mem_addr);
+	uds_download_request.memory_sz = uds_load_be(&iso14229_1_received_indn.msg[3 + bcnt_mem_addr], bcnt_mem_sz);
+
+	if(uds_download_request.memory_sz == 0)
+	{
+		uds_tranfer_data.sts = TD_LOCKED;
+		iso14229_send_NRC(&iso14229_1_received_indn.n_ai,
+				__uds_get_function(iso14229_1_received_indn.msg),UDS_NRC_ROOR);
+		return;
+	}
 
 	transfer_data_collection_pos = 0;
 	memset(transfer_data_collection,0,UDS_TDC_SZ);

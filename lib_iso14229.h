@@ -47,25 +47,11 @@ SOFTWARE.
 	#error "Missing: `stm32yyxx_hal.h`."
 #endif
 
-#if __has_include("lib_iso15765.h")
-		#include "lib_iso15765.h"
-		#define LIB_ISO14229_1_ENABLED
-	#else 
-		#undef LIB_ISO14229_1_ENABLED
-#endif
-
-#if __has_include("lib_iso14229_config.h")
-		#include "lib_iso14229_config.h"
-		#define LIB_ISO14229_1_ENABLED
-	#else 
-		#undef LIB_ISO14229_1_ENABLED
-#endif
-
-#if __has_include("lib_crypto.h")
-		#include "lib_crypto.h"
-		#define LIB_ISO14229_1_ENABLED
-	#else 
-		#undef LIB_ISO14229_1_ENABLED
+#if __has_include("lib_iso15765.h") && __has_include("lib_iso14229_config.h") && __has_include("lib_crypto.h")
+	#include "lib_iso15765.h"
+	#include "lib_iso14229_config.h"
+	#include "lib_crypto.h"
+	#define LIB_ISO14229_1_ENABLED
 #endif
 
 #ifdef LIB_ISO14229_1_ENABLED
@@ -239,6 +225,38 @@ SOFTWARE.
 #define UDS_RDTC_RWWHOBDDTCBMR 		0x42   /* rep.WWHOBDDTCByMaskRecord	 */
 #define UDS_RDTC_RWWHOBDDTCWPS 		0x55   /* rep.WWHOBDDTCWithPerm.Status	 */
 #define UDS_RDTC_RDTCBRGI  		0x56   /* rep.DTCInfoByDTCRdness.Gr.Id.  */
+
+/* -- DTC status bits [ ISO14229-1 statusOfDTC ] -------------------------- */
+
+#define UDS_DTC_STS_TF			0x01	/* testFailed			 */
+#define UDS_DTC_STS_TFTOC		0x02	/* testFailedThisOper.Cycle	 */
+#define UDS_DTC_STS_PDTC		0x04	/* pendingDTC			 */
+#define UDS_DTC_STS_CDTC		0x08	/* confirmedDTC			 */
+#define UDS_DTC_STS_TNCSLC		0x10	/* testNotCompl.SinceLastClr	 */
+#define UDS_DTC_STS_TFSLC		0x20	/* testFailedSinceLastClear	 */
+#define UDS_DTC_STS_TNCTOC		0x40	/* testNotCompl.ThisOper.Cycle	 */
+#define UDS_DTC_STS_WIR			0x80	/* warningIndicatorRequested	 */
+
+/* Status written by ClearDiagnosticInformation. */
+#define UDS_DTC_STATUS_AFTER_CLEAR	(UDS_DTC_STS_TNCSLC | UDS_DTC_STS_TNCTOC)
+
+/* Bits this server reports. Override in lib_iso14229_config.h if needed. */
+#ifndef UDS_DTC_STATUS_AVAILABILITY_MASK
+#define UDS_DTC_STATUS_AVAILABILITY_MASK \
+	(UDS_DTC_STS_TF | UDS_DTC_STS_TFTOC | UDS_DTC_STS_PDTC | UDS_DTC_STS_CDTC | \
+	 UDS_DTC_STS_TNCSLC | UDS_DTC_STS_TFSLC | UDS_DTC_STS_TNCTOC | UDS_DTC_STS_WIR)
+#endif
+
+/* 0x01 = ISO_14229-1_DTCFormat (3-byte DTC). */
+#ifndef UDS_DTC_FORMAT_IDENTIFIER
+#define UDS_DTC_FORMAT_IDENTIFIER	0x01
+#endif
+
+/* groupOfDTC value that addresses every DTC. */
+#define UDS_DTC_GROUP_ALL		0x00FFFFFFu
+
+#define UDS_DTC_CODE(h, m, l) \
+	(((uint32_t)(h) << 16) | ((uint32_t)(m) << 8) | (uint32_t)(l))
 
 /******************************************************************************
 * Enumerations, structures & Variables
@@ -589,20 +607,18 @@ typedef struct __attribute__ ((aligned (4)))
 }uds_session_t;
 
 
-typedef struct
-{
-	uint8_t index; // indice del dizionario
-	uint8_t size; // number of byte to save 1 2 4
-	struct freeze_frame_t *next; //
-}freeze_frame_t;
-
+/*
+ * One supported DTC. A code of 0 (high, middle and low all zero) is an
+ * empty slot and is ignored by ReadDTC and ClearDiagnosticInformation.
+ * `status` uses the UDS_DTC_STS_* bits. New entries should start at
+ * UDS_DTC_STATUS_AFTER_CLEAR.
+ */
 typedef struct __attribute__ ((aligned (4)))
 {
-	uint8_t DTCCode;
-	uint8_t DTCSymptom;
-	uint8_t EmissionRelated;
-	uint32_t OBDCode;
-	freeze_frame_t* freezeFrame;
+	uint8_t high;
+	uint8_t middle;
+	uint8_t low;
+	uint8_t status;
 }uds_dtc_t;
 
 
@@ -616,6 +632,11 @@ extern __attribute__ ((aligned (4)))
 					uds_routine_local_id_t uds_routines[ISO14229_1_NUMOF_ROUTINESBYLOCALID];
 extern __attribute__ ((aligned (4)))
 					uds_read_data_by_id_t uds_read_data_by_id[ISO14229_1_NUMOF_READDATABYID];
+
+#ifndef ISO14229_1_NUMOF_WRITEDATABYID
+#define ISO14229_1_NUMOF_WRITEDATABYID 4
+#endif
+
 extern __attribute__ ((aligned (4)))
 					uds_write_data_by_id_t uds_write_data_by_id[ISO14229_1_NUMOF_WRITEDATABYID];
 extern __attribute__ ((aligned (4)))
@@ -630,8 +651,15 @@ extern __attribute__ ((aligned (4)))
 					uds_session_t uds_sessions[ISO14229_1_NUMOF_DIAGSESSIONS] ;
 extern __attribute__ ((aligned (4)))
 				    uds_io_control_by_id_t* uds_io_control_by_id[ISO14229_1_NUMOF_IOCONTROL];
+
+#ifndef ISO14229_1_NUMOF_DTC
+#define ISO14229_1_NUMOF_DTC 8
+#endif
+
+#if ISO14229_1_NUMOF_DTC > 0
 extern __attribute__ ((aligned (4)))
-				uds_dtc_t uds_dtc[ISO14229_1_NUMOF_DTC];
+					uds_dtc_t uds_dtc[ISO14229_1_NUMOF_DTC];
+#endif
 
 
 /******************************************************************************
@@ -662,11 +690,6 @@ uint8_t send_frame(cbus_id_type id_type, uint32_t id, cbus_fr_format fr_fmt, uin
  */
 uint8_t iso14229_ecu_flash_write(uint32_t address, uint8_t* data_array,uint32_t data_array_sz);
 
-/*
- * SHIM: This function should be implemented by
- * the user to Initialise the freez_frame.
- */
-uint8_t iso14229_initFreezeFrame();
 /******************************************************************************
 * Declaration | Public (lib-level) Functions
 ******************************************************************************/
@@ -734,6 +757,25 @@ void iso14229_1_srvc_diagnostic_session_refresh_timeout();
 void iso14229_1_srvc_input_output_control_by_identifier();
 void iso14229_1_srvc_input_output_control_process();
 intptr_t iso14229_srvc_ioc_get(uds_io_control_by_id_t*);
+
+/*
+ * Functions related to service: DTC (0x19 Read, 0x14 Clear)
+ *
+ * iso14229_dtc_set_result() records one completed test for a DTC that is
+ * already present in uds_dtc[]. `dtc` is the 24-bit code (UDS_DTC_CODE).
+ * A non-zero `failed` means the test failed. Returns 1 when the DTC exists.
+ *
+ * iso14229_dtc_operation_cycle() starts a new operation cycle: pending is
+ * cleared when the previous cycle had no failure, and "this cycle" bits reset.
+ *
+ * iso14229_dtc_on_clear() is a weak hook called after a successful clear.
+ * Override it to persist the cleared status.
+ */
+void iso14229_1_srvc_ClearDiagnosticInformation(void);
+void iso14229_1_srvc_readDTCinformation(void);
+uint8_t iso14229_dtc_set_result(uint32_t dtc, uint8_t failed);
+void iso14229_dtc_operation_cycle(void);
+void iso14229_dtc_on_clear(uint32_t group_of_dtc);
 
 /*
  * Check if a give service is actually supported
